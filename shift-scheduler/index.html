@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>排班工具</title>
+  <!-- 不依賴外部 CDN，本機開啟即可使用，避免 Google 連線失敗導致頁面異常 -->
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: rgba(255,255,255,0.92);
+      --surface-hover: rgba(248,250,252,0.95);
+      --border: rgba(148,163,184,0.4);
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --accent: #0ea5e9;
+      --accent-hover: #38bdf8;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "PingFang TC", "Microsoft JhengHei", "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 70% 45% at 15% 35%, rgba(255,255,255,0.85) 0%, transparent 55%),
+        radial-gradient(ellipse 55% 35% at 85% 55%, rgba(255,255,255,0.75) 0%, transparent 50%),
+        radial-gradient(ellipse 45% 30% at 50% 15%, rgba(255,255,255,0.7) 0%, transparent 45%),
+        radial-gradient(ellipse 60% 40% at 75% 25%, rgba(255,255,255,0.6) 0%, transparent 50%),
+        linear-gradient(165deg, #fef3c7 0%, #e0e7ff 18%, #d1fae5 35%, #fce7f3 52%, #cffafe 68%, #e9d5ff 85%, #fed7aa 100%);
+      background-attachment: fixed;
+      color: var(--text);
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      color: var(--text);
+    }
+    .sub { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .tabs button {
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: color 0.2s, background 0.2s, border-color 0.2s;
+    }
+    .tabs button:hover { color: var(--text); background: var(--surface-hover); }
+    .tabs button.active { color: var(--accent); border-color: var(--accent); background: rgba(56,189,248,0.1); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text); }
+    .form-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+    .form-row label { min-width: 4rem; font-weight: 500; color: var(--text-muted); }
+    input[type="text"], input[type="color"] {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+    }
+    input[type="color"] { width: 2.5rem; height: 2rem; padding: 2px; cursor: pointer; }
+    .btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-primary:hover { background: var(--accent-hover); color: var(--bg); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); background: var(--surface-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { opacity: 0.9; }
+    .list { list-style: none; }
+    .list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+    .list li span:first-of-type { font-weight: 500; }
+    .list li .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .calendar-header h2 { margin: 0; font-size: 1.25rem; }
+    .calendar-nav { display: flex; gap: 0.5rem; }
+    .calendar-nav .btn { padding: 0.5rem 1rem; }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .calendar-weekday {
+      background: var(--surface-hover);
+      padding: 0.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .calendar-day {
+      min-height: 88px;
+      background: var(--surface);
+      padding: 0.35rem;
+      font-size: 0.85rem;
+      overflow: hidden;
+    }
+    .calendar-day.other-month { opacity: 0.45; }
+    .calendar-day .date-num { font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .calendar-day .assignments { display: flex; flex-direction: column; gap: 0.2rem; }
+    .calendar-day .assignment {
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .calendar-day.empty { cursor: pointer; }
+    .calendar-day.empty:hover { background: var(--surface-hover); }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1rem;
+    }
+    body.modal-open { overflow: hidden; }
+    .modal {
+      background: rgba(255,255,255,0.98);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: var(--shadow);
+      margin: auto;
+    }
+    .modal.modal-scrollable {
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal h3 { margin-bottom: 1rem; font-size: 1.1rem; }
+    .modal .form-row { margin-bottom: 1rem; }
+    .modal .form-row label { display: block; margin-bottom: 0.35rem; min-width: 0; }
+    .modal select {
+      width: 100%;
+      padding: 0.6rem;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+    }
+    .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; }
+    .export-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .msg { padding: 0.6rem 0.75rem; border-radius: 8px; font-size: 0.9rem; margin-top: 0.5rem; }
+    .msg.success { background: rgba(74,222,128,0.2); color: var(--success); }
+    .msg.error { background: rgba(248,113,113,0.2); color: var(--danger); }
+    .hidden { display: none !important; }
+    /* 班表條件：每週幾各班別需求人數 */
+    .requirements-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .requirements-table th, .requirements-table td {
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .requirements-table th { background: var(--surface-hover); color: var(--text-muted); font-weight: 600; }
+    .requirements-table td { background: var(--bg); }
+    .requirements-table input[type="number"] {
+      width: 4rem;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+    }
+    .requirements-table input[type="number"]:focus { outline: none; border-color: var(--accent); }
+    .req-day { font-weight: 500; color: var(--text); }
+    .calendar-day .req-hint {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+      line-height: 1.3;
+    }
+    .calendar-day .req-hint .ok { color: var(--success); }
+    .calendar-day .req-hint .ok { color: var(--success); }
+    .calendar-day .req-hint .short { color: var(--danger); }
+    /* 人員編輯、自動排班 */
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.35rem; }
+    .checkbox-group label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: normal; min-width: 0; }
+    .checkbox-group input[type="checkbox"] { width: 1rem; height: 1rem; }
+    .field-block { margin-bottom: 1rem; }
+    .field-block .label { font-weight: 600; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.35rem; }
+    .staff-list-actions { display: flex; gap: 0.35rem; }
+    .staff-list-actions .btn { padding: 0.35rem 0.6rem; font-size: 0.85rem; }
+    .unavailable-dates-list { margin-top: 0.35rem; }
+    .unavailable-dates-list .date-tag {
+      display: inline-block; padding: 0.2rem 0.5rem; margin: 0.2rem 0.2rem 0 0;
+      background: var(--bg); border-radius: 6px; font-size: 0.85rem;
+    }
+    .unavailable-dates-list .date-tag .remove-date { margin-left: 0.35rem; cursor: pointer; color: var(--text-muted); }
+    .unavailable-dates-list .date-tag .remove-date:hover { color: var(--danger); }
+    /* 人員編輯：指定日期月曆 */
+    .staff-edit-calendar { margin-top: 0.5rem; }
+    .staff-edit-calendar .cal-nav {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;
+    }
+    .staff-edit-calendar .cal-nav span { font-weight: 600; color: var(--text); }
+    .staff-edit-calendar .cal-nav button {
+      padding: 0.25rem 0.5rem; font-size: 0.85rem; font-family: inherit;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer;
+    }
+    .staff-edit-calendar .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; font-size: 0.8rem;
+    }
+    .staff-edit-calendar .cal-weekday {
+      text-align: center; color: var(--text-muted); font-weight: 600; padding: 0.25rem 0;
+    }
+    .staff-edit-calendar .cal-day {
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border-radius: 6px; cursor: pointer; color: var(--text-muted);
+    }
+    .staff-edit-calendar .cal-day.other-month { opacity: 0.4; }
+    .staff-edit-calendar .cal-day.today { border: 1px solid var(--accent); color: var(--accent); }
+    .staff-edit-calendar .cal-day.unavailable {
+      background: rgba(248,113,113,0.35); color: var(--danger); font-weight: 600;
+    }
+    .staff-edit-calendar .cal-day:hover { background: var(--surface-hover); }
+    .staff-edit-calendar .cal-day.unavailable:hover { background: rgba(248,113,113,0.5); }
+    .staff-edit-unavailable-summary { margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-muted); }
+    .staff-edit-unavailable-summary .summary-list { margin-top: 0.35rem; max-height: 80px; overflow-y: auto; }
+    .staff-edit-reset-dates { margin-top: 0.5rem; }
+    #auto-schedule-btn { margin-left: 0.25rem; }
+    /* 《勞基法》連續工作逾 6 天警示 */
+    .consecutive-days-alert {
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      background: rgba(254,226,226,0.9);
+      border: 1px solid rgba(239,68,68,0.5);
+      color: #b91c1c;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    .consecutive-days-alert.hidden { display: none !important; }
+    .consecutive-days-alert .alert-item { margin: 0.25rem 0; }
+    /* 正在進行中 / 通知 overlay */
+    .progress-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(248,250,252,0.88);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 1rem;
+    }
+    .progress-overlay.hidden { display: none !important; }
+    .progress-overlay .box {
+      background: rgba(255,255,255,0.98);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      min-width: 200px;
+    }
+    .progress-overlay .spinner {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 1rem;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .progress-overlay .text { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    .progress-overlay .text.notice { color: var(--accent); }
+    .progress-overlay .text.warn { color: #b91c1c; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>排班工具</h1>
+      <p class="sub">管理人員、班別與月曆排班，資料儲存於本機瀏覽器</p>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="active" data-tab="calendar" role="tab" aria-selected="true">月曆排班</button>
+      <button type="button" data-tab="requirements" role="tab" aria-selected="false">班表條件</button>
+      <button type="button" data-tab="staff" role="tab" aria-selected="false">人員管理</button>
+      <button type="button" data-tab="shifts" role="tab" aria-selected="false">班別設定</button>
+      <button type="button" data-tab="export" role="tab" aria-selected="false">匯出</button>
+    </nav>
+
+    <!-- 月曆排班 -->
+    <section id="panel-calendar" class="panel active" role="tabpanel">
+      <div class="card">
+        <div id="consecutive-days-alert" class="consecutive-days-alert hidden" role="alert"></div>
+        <div class="calendar-header">
+          <h2 id="calendar-title">2025年3月</h2>
+          <div class="calendar-nav">
+            <button type="button" class="btn btn-ghost" id="prev-month">上一月</button>
+            <button type="button" class="btn btn-ghost" id="next-month">下一月</button>
+            <button type="button" class="btn btn-primary" id="today-btn">本月</button>
+            <button type="button" class="btn btn-ghost" id="clear-month-btn">重新開始排班</button>
+            <button type="button" class="btn btn-primary" id="auto-schedule-btn">依需求自動排班</button>
+          </div>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.35rem;">自動排班會依「班表條件」與「人員設定」的條件填滿本月。</p>
+        <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;margin-bottom:0.75rem;color:var(--text-muted)">
+          <input type="checkbox" id="auto-schedule-clear-first">
+          先清除本月既有排班再排（不勾則只補缺額）
+        </label>
+        <div class="calendar-grid" id="calendar-grid"></div>
+      </div>
+    </section>
+
+    <!-- 班表條件：每週幾各班別需要多少人 -->
+    <section id="panel-requirements" class="panel" role="tabpanel">
+      <div class="card">
+        <h2>每週班表需求</h2>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1rem;">設定「每週幾」各需要幾人上哪一種班。例如：每週一需要 2 人早班、3 人晚班。月曆上會顯示需求與目前排班是否相符。</p>
+        <div class="table-wrap" style="overflow-x:auto">
+          <table class="requirements-table" id="requirements-table">
+            <thead><tr id="requirements-thead"></tr></thead>
+            <tbody id="requirements-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 人員管理 -->
+    <section id="panel-staff" class="panel" role="tabpanel">
+      <div class="card">
+        <h2>新增人員</h2>
+        <div class="form-row">
+          <label for="staff-name">姓名</label>
+          <input type="text" id="staff-name" placeholder="例如：王小明" maxlength="50">
+          <button type="button" class="btn btn-primary" id="add-staff">新增</button>
+        </div>
+        <div class="form-row">
+          <label for="staff-note">備註</label>
+          <input type="text" id="staff-note" placeholder="選填" maxlength="100" style="flex:1;min-width:120px">
+        </div>
+        <p id="staff-msg" class="msg hidden"></p>
+        <h2 style="margin-top:1.25rem">人員列表</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.5rem;">點「編輯」可設定此人只上／不上哪些班、每週哪幾天不能上、指定日期不能上。</p>
+        <ul class="list" id="staff-list"></ul>
+      </div>
+      <div class="card">
+        <h2>本月各班別天數統計</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.5rem;">統計為月曆目前顯示的月份，每位員工各班別排班天數。</p>
+        <div style="overflow-x:auto">
+          <table class="requirements-table" id="staff-shift-stats-table">
+            <thead><tr id="staff-shift-stats-thead"></tr></thead>
+            <tbody id="staff-shift-stats-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 班別設定 -->
+    <section id="panel-shifts" class="panel" role="tabpanel">
+      <div class="card">
+        <h2>新增班別</h2>
+        <div class="form-row">
+          <label for="shift-name">名稱</label>
+          <input type="text" id="shift-name" placeholder="例如：早班、晚班、休假" maxlength="20">
+          <label for="shift-color">顏色</label>
+          <input type="color" id="shift-color" value="#3b82f6">
+          <button type="button" class="btn btn-primary" id="add-shift">新增</button>
+        </div>
+        <p id="shift-msg" class="msg hidden"></p>
+        <h2 style="margin-top:1.25rem">班別列表</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.5rem;">點「編輯」可修改名稱、顏色與備注。</p>
+        <ul class="list" id="shift-list"></ul>
+      </div>
+    </section>
+
+    <!-- 班別編輯 Modal -->
+    <div id="shift-edit-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal">
+        <h3 id="shift-edit-title">編輯班別</h3>
+        <input type="hidden" id="shift-edit-id" value="">
+        <div class="field-block">
+          <div class="label">名稱</div>
+          <input type="text" id="shift-edit-name" maxlength="20" style="width:100%;padding:0.5rem 0.75rem;">
+        </div>
+        <div class="field-block">
+          <div class="label">顏色</div>
+          <input type="color" id="shift-edit-color" style="width:3rem;height:2.25rem;padding:2px;cursor:pointer;">
+        </div>
+        <div class="field-block">
+          <div class="label">備注</div>
+          <input type="text" id="shift-edit-note" maxlength="100" placeholder="選填" style="width:100%;padding:0.5rem 0.75rem;">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="shift-edit-save">儲存</button>
+          <button type="button" class="btn btn-ghost" id="shift-edit-close">關閉</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 匯出 -->
+    <section id="panel-export" class="panel" role="tabpanel">
+      <div class="card">
+        <h2>匯出</h2>
+        <p class="text-muted" style="color:var(--text-muted);margin-bottom:0.5rem">匯出目前顯示月份的班表為 PDF 或表格檔案（CSV，可用 Excel／試算表開啟）。</p>
+        <div class="export-actions">
+          <button type="button" class="btn btn-primary" id="export-pdf">下載 PDF</button>
+          <button type="button" class="btn btn-ghost" id="export-csv">下載表格（CSV）</button>
+        </div>
+        <p id="export-msg" class="msg hidden"></p>
+      </div>
+    </section>
+  </div>
+
+  <!-- 正在進行中 / 通知 overlay -->
+  <div id="progress-overlay" class="progress-overlay hidden" aria-live="polite">
+    <div class="box">
+      <div id="progress-spinner" class="spinner"></div>
+      <div id="progress-text" class="text">正在進行中</div>
+    </div>
+  </div>
+
+  <!-- 人員編輯 Modal -->
+  <div id="staff-edit-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal modal-scrollable" style="max-width:480px">
+      <h3 id="staff-edit-title">編輯人員</h3>
+      <input type="hidden" id="staff-edit-id" value="">
+      <div class="field-block">
+        <div class="label">姓名</div>
+        <input type="text" id="staff-edit-name" maxlength="50" style="width:100%;padding:0.5rem 0.75rem;">
+      </div>
+      <div class="field-block">
+        <div class="label">備註</div>
+        <input type="text" id="staff-edit-note" maxlength="100" placeholder="選填" style="width:100%;padding:0.5rem 0.75rem;">
+      </div>
+      <div class="field-block">
+        <div class="label">只上這些班（不勾＝不限制）</div>
+        <div class="checkbox-group" id="staff-edit-allowed-shifts"></div>
+      </div>
+      <div class="field-block">
+        <div class="label">不上這些班</div>
+        <div class="checkbox-group" id="staff-edit-disallowed-shifts"></div>
+      </div>
+      <div class="field-block">
+        <div class="label">每週哪幾天不能上班</div>
+        <div class="checkbox-group" id="staff-edit-unavailable-weekdays"></div>
+      </div>
+      <div class="field-block">
+        <div class="label">指定日期不能上班（點日期勾選／再點取消）</div>
+        <div class="staff-edit-calendar">
+          <div class="cal-nav">
+            <button type="button" id="staff-edit-cal-prev">‹ 上一月</button>
+            <span id="staff-edit-cal-title">2025年3月</span>
+            <button type="button" id="staff-edit-cal-next">下一月 ›</button>
+          </div>
+          <div class="cal-grid" id="staff-edit-cal-grid"></div>
+        </div>
+        <div class="staff-edit-unavailable-summary">
+          <div class="label">該人員不能上班的日期</div>
+          <div class="summary-list unavailable-dates-list" id="staff-edit-unavailable-dates"></div>
+        </div>
+        <div class="staff-edit-reset-dates">
+          <button type="button" class="btn btn-ghost" id="staff-edit-reset-dates-btn">重新整理（清空指定日期）</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="staff-edit-save">儲存</button>
+        <button type="button" class="btn btn-ghost" id="staff-edit-close">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 指定日期排班 Modal -->
+  <div id="day-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal">
+      <h3 id="day-modal-title">排班</h3>
+      <input type="hidden" id="day-modal-date" value="">
+      <div class="form-row">
+        <label for="day-modal-staff">人員</label>
+        <select id="day-modal-staff"></select>
+      </div>
+      <div class="form-row">
+        <label for="day-modal-shift">班別</label>
+        <select id="day-modal-shift"></select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="day-modal-clear">清除此人</button>
+        <button type="button" class="btn btn-primary" id="day-modal-save">儲存</button>
+        <button type="button" class="btn btn-ghost" id="day-modal-close">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+(function() {
+  var STORAGE_KEY = 'shift_scheduler_data';
+  var weekdays = ['日','一','二','三','四','五','六'];
+
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { staff: [], shiftTypes: [], assignments: {}, weeklyRequirements: {} };
+      var d = JSON.parse(raw);
+      d.assignments = d.assignments || {};
+      d.staff = d.staff || [];
+      d.shiftTypes = d.shiftTypes || [];
+      d.weeklyRequirements = d.weeklyRequirements || {};
+      d.staff = (d.staff || []).map(function(s) {
+        s.allowedShifts = Array.isArray(s.allowedShifts) ? s.allowedShifts : [];
+        s.disallowedShifts = Array.isArray(s.disallowedShifts) ? s.disallowedShifts : [];
+        s.unavailableWeekdays = Array.isArray(s.unavailableWeekdays) ? s.unavailableWeekdays : [];
+        s.unavailableDates = Array.isArray(s.unavailableDates) ? s.unavailableDates : [];
+        return s;
+      });
+      return d;
+    } catch (e) {
+      return { staff: [], shiftTypes: [], assignments: {} };
+    }
+  }
+
+  function save(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  var state = {
+    data: load(),
+    currentYear: new Date().getFullYear(),
+    currentMonth: new Date().getMonth()
+  };
+
+  function getShiftById(id) {
+    return state.data.shiftTypes.find(function(s) { return s.id === id; });
+  }
+  function getStaffById(id) {
+    return state.data.staff.find(function(s) { return s.id === id; });
+  }
+
+  function staffCanWorkShift(staff, shiftId) {
+    staff = staff || {};
+    var allowed = staff.allowedShifts || [];
+    var disallowed = staff.disallowedShifts || [];
+    if (disallowed.indexOf(shiftId) >= 0) return false;
+    if (allowed.length > 0 && allowed.indexOf(shiftId) < 0) return false;
+    return true;
+  }
+
+  function staffAvailableOnDate(staff, dateStr) {
+    staff = staff || {};
+    var d = new Date(dateStr);
+    var dow = d.getDay();
+    if ((staff.unavailableWeekdays || []).indexOf(dow) >= 0) return false;
+    if ((staff.unavailableDates || []).indexOf(dateStr) >= 0) return false;
+    return true;
+  }
+
+  function getRequirementsForDayOfWeek(dow) {
+    var req = state.data.weeklyRequirements[String(dow)];
+    return req && typeof req === 'object' ? req : {};
+  }
+
+  // ---- 班表條件 ----
+  function renderRequirementsPanel() {
+    var thead = document.getElementById('requirements-thead');
+    var tbody = document.getElementById('requirements-tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    thead.appendChild(document.createElement('th')).textContent = '星期';
+    state.data.shiftTypes.forEach(function(shift) {
+      var th = document.createElement('th');
+      th.textContent = shift.name;
+      th.style.color = shift.color || 'var(--text)';
+      thead.appendChild(th);
+    });
+    var dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+    for (var dow = 0; dow < 7; dow++) {
+      var tr = document.createElement('tr');
+      var tdDay = document.createElement('td');
+      tdDay.className = 'req-day';
+      tdDay.textContent = dayNames[dow];
+      tr.appendChild(tdDay);
+      var dayReq = getRequirementsForDayOfWeek(dow);
+      state.data.shiftTypes.forEach(function(shift) {
+        var td = document.createElement('td');
+        var input = document.createElement('input');
+        input.type = 'number';
+        input.min = 0;
+        input.value = dayReq[shift.id] != null ? dayReq[shift.id] : '';
+        input.placeholder = '0';
+        input.dataset.dow = String(dow);
+        input.dataset.shiftId = shift.id;
+        input.addEventListener('change', function() {
+          var d = state.data.weeklyRequirements[this.dataset.dow];
+          if (!d) state.data.weeklyRequirements[this.dataset.dow] = d = {};
+          var v = parseInt(this.value, 10);
+          if (v >= 0) d[this.dataset.shiftId] = v; else delete d[this.dataset.shiftId];
+          save(state.data);
+          renderCalendar();
+        });
+        td.appendChild(input);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+  }
+
+  // ---- Tabs ----
+  document.querySelectorAll('.tabs button').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var tab = this.getAttribute('data-tab');
+      document.querySelectorAll('.tabs button').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+        b.setAttribute('aria-selected', b.getAttribute('data-tab') === tab ? 'true' : 'false');
+      });
+      document.querySelectorAll('.panel').forEach(function(p) {
+        p.classList.toggle('active', p.id === 'panel-' + tab);
+      });
+      if (tab === 'calendar') renderCalendar();
+      if (tab === 'requirements') renderRequirementsPanel();
+      if (tab === 'staff') renderStaffShiftStats();
+    });
+  });
+
+  // ---- 連續工作天數檢查（《勞基法》不得連續工作超過 6 天）----
+  function getMaxConsecutiveWorkDays(staffId, y, m) {
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    var start = new Date(y, m, 1);
+    start.setDate(start.getDate() - 6);
+    var end = new Date(y, m + 1, 0);
+    var workSet = {};
+    for (var dateStr in state.data.assignments) {
+      if (state.data.assignments[dateStr][staffId]) workSet[dateStr] = true;
+    }
+    var cur = 0, max = 0;
+    for (var d = new Date(start.getTime()); d <= end; d.setDate(d.getDate() + 1)) {
+      var ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (workSet[ds]) {
+        cur++;
+        if (cur > max) max = cur;
+      } else {
+        cur = 0;
+      }
+    }
+    return max;
+  }
+
+  function updateConsecutiveDaysAlert() {
+    var y = state.currentYear, m = state.currentMonth;
+    var list = [];
+    state.data.staff.forEach(function(s) {
+      var maxDays = getMaxConsecutiveWorkDays(s.id, y, m);
+      if (maxDays >= 7) list.push({ name: s.name || '未命名', days: maxDays });
+    });
+    var el = document.getElementById('consecutive-days-alert');
+    if (list.length === 0) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      return;
+    }
+    el.classList.remove('hidden');
+    el.innerHTML = '<div style="margin-bottom:0.35rem;">依據《勞動基準法》，勞工原則上不得連續工作超過 6 天。以下人員排班已逾規定，請留意相關法規並調整：</div>' +
+      list.map(function(x) { return '<div class="alert-item">' + x.name + ' 已連續上班 ' + x.days + ' 天，請留意相關法規。</div>'; }).join('');
+  }
+
+  // ---- Calendar ----
+  function renderCalendar() {
+    var y = state.currentYear, m = state.currentMonth;
+    document.getElementById('calendar-title').textContent = y + '年' + (m + 1) + '月';
+    var first = new Date(y, m, 1);
+    var last = new Date(y, m + 1, 0);
+    var startPad = first.getDay();
+    var daysInMonth = last.getDate();
+    var prevMonth = m === 0 ? 11 : m - 1;
+    var prevYear = m === 0 ? y - 1 : y;
+    var prevLast = new Date(prevYear, prevMonth + 1, 0).getDate();
+    var grid = document.getElementById('calendar-grid');
+    grid.innerHTML = '';
+    weekdays.forEach(function(w) {
+      var cell = document.createElement('div');
+      cell.className = 'calendar-weekday';
+      cell.textContent = w;
+      grid.appendChild(cell);
+    });
+    for (var i = 0; i < startPad; i++) {
+      var d = prevLast - startPad + i + 1;
+      var cell = document.createElement('div');
+      cell.className = 'calendar-day other-month';
+      cell.innerHTML = '<span class="date-num">' + d + '</span><div class="assignments"></div>';
+      grid.appendChild(cell);
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var cell = document.createElement('div');
+      cell.className = 'calendar-day';
+      cell.dataset.date = dateStr;
+      var dayAssignments = state.data.assignments[dateStr] || {};
+      var dow = new Date(y, m, d).getDay();
+      var dayReq = getRequirementsForDayOfWeek(dow);
+      var countByShift = {};
+      Object.keys(dayAssignments).forEach(function(staffId) {
+        var shiftId = dayAssignments[staffId];
+        countByShift[shiftId] = (countByShift[shiftId] || 0) + 1;
+      });
+      var html = '<span class="date-num">' + d + '</span><div class="assignments">';
+      Object.keys(dayAssignments).forEach(function(staffId) {
+        var shiftId = dayAssignments[staffId];
+        var shift = getShiftById(shiftId);
+        var staff = getStaffById(staffId);
+        var name = staff ? staff.name : '?';
+        var label = shift ? shift.name : '?';
+        var color = shift ? shift.color : '#64748b';
+        html += '<div class="assignment" style="background:' + color + ';color:#fff" data-staff="' + staffId + '" data-date="' + dateStr + '" title="' + name + ' - ' + label + '">' + name + ' ' + label + '</div>';
+      });
+      html += '</div>';
+      var reqParts = [];
+      Object.keys(dayReq).forEach(function(shiftId) {
+        var need = dayReq[shiftId];
+        if (need == null || need <= 0) return;
+        var cur = countByShift[shiftId] || 0;
+        var shift = getShiftById(shiftId);
+        var name = shift ? shift.name : '?';
+        var cls = cur >= need ? 'ok' : 'short';
+        reqParts.push('<span class="' + cls + '">' + name + ' ' + cur + '/' + need + '</span>');
+      });
+      if (reqParts.length) html += '<div class="req-hint">' + reqParts.join(' ') + '</div>';
+      cell.innerHTML = html;
+      cell.querySelector('.assignments').addEventListener('click', function(ev) {
+        var t = ev.target;
+        if (t.classList.contains('assignment')) openDayModal(t.dataset.date, t.dataset.staff);
+      });
+      cell.addEventListener('click', function(ev) {
+        if (ev.target.closest('.assignments')) return;
+        openDayModal(dateStr, null);
+      });
+      grid.appendChild(cell);
+    }
+    var rest = 42 - (startPad + daysInMonth);
+    for (var i = 0; i < rest; i++) {
+      var cell = document.createElement('div');
+      cell.className = 'calendar-day other-month';
+      cell.innerHTML = '<span class="date-num">' + (i + 1) + '</span><div class="assignments"></div>';
+      grid.appendChild(cell);
+    }
+    updateConsecutiveDaysAlert();
+  }
+
+  document.getElementById('prev-month').addEventListener('click', function() {
+    if (state.currentMonth === 0) { state.currentYear--; state.currentMonth = 11; }
+    else state.currentMonth--;
+    renderCalendar();
+  });
+  document.getElementById('next-month').addEventListener('click', function() {
+    if (state.currentMonth === 11) { state.currentYear++; state.currentMonth = 0; }
+    else state.currentMonth++;
+    renderCalendar();
+  });
+  document.getElementById('today-btn').addEventListener('click', function() {
+    var t = new Date();
+    state.currentYear = t.getFullYear();
+    state.currentMonth = t.getMonth();
+    renderCalendar();
+  });
+
+  function clearCurrentMonth() {
+    var y = state.currentYear, m = state.currentMonth;
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    for (var d = 1; d <= lastDay; d++) {
+      var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      delete state.data.assignments[dateStr];
+    }
+    save(state.data);
+    renderCalendar();
+  }
+
+  document.getElementById('clear-month-btn').addEventListener('click', function() {
+    if (!confirm('確定要清除目前顯示月份（' + state.currentYear + '年' + (state.currentMonth + 1) + '月）的所有排班嗎？此操作無法復原。')) return;
+    clearCurrentMonth();
+  });
+
+  function hasAnyRequirement() {
+    for (var dow in state.data.weeklyRequirements) {
+      var dayReq = state.data.weeklyRequirements[dow];
+      if (typeof dayReq !== 'object') continue;
+      for (var shiftId in dayReq) {
+        var n = dayReq[shiftId];
+        if (n != null && parseInt(n, 10) > 0) return true;
+      }
+    }
+    return false;
+  }
+
+  function showProgressOverlay(message, showSpinner) {
+    var el = document.getElementById('progress-overlay');
+    var textEl = document.getElementById('progress-text');
+    var spinEl = document.getElementById('progress-spinner');
+    textEl.textContent = message || '正在進行中';
+    textEl.className = 'text' + (message && message.indexOf('班表條件') >= 0 ? ' warn' : '');
+    spinEl.style.display = showSpinner !== false ? 'block' : 'none';
+    el.classList.remove('hidden');
+  }
+
+  function hideProgressOverlay() {
+    document.getElementById('progress-overlay').classList.add('hidden');
+  }
+
+  function runAutoSchedule() {
+    var y = state.currentYear, m = state.currentMonth;
+    var clearFirst = document.getElementById('auto-schedule-clear-first').checked;
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    if (clearFirst) {
+      for (var d = 1; d <= lastDay; d++) {
+        var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        delete state.data.assignments[dateStr];
+      }
+    }
+    var assignmentCount = {};
+    state.data.staff.forEach(function(s) { assignmentCount[s.id] = 0; });
+    function getCountInMonth(staffId) {
+      var n = 0;
+      for (var d = 1; d <= lastDay; d++) {
+        var ds = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        var dayAss = state.data.assignments[ds] || {};
+        if (dayAss[staffId]) n++;
+      }
+      return n;
+    }
+    for (var d = 1; d <= lastDay; d++) {
+      var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var dow = new Date(y, m, d).getDay();
+      var dayReq = getRequirementsForDayOfWeek(dow);
+      var dayAss = state.data.assignments[dateStr] || {};
+      Object.keys(dayReq).forEach(function(shiftId) {
+        var need = dayReq[shiftId];
+        if (need == null || need <= 0) return;
+        var cur = 0;
+        Object.keys(dayAss).forEach(function(sid) { if (dayAss[sid] === shiftId) cur++; });
+        for (var i = cur; i < need; i++) {
+          var eligible = state.data.staff.filter(function(s) {
+            if (!staffCanWorkShift(s, shiftId)) return false;
+            if (!staffAvailableOnDate(s, dateStr)) return false;
+            if (dayAss[s.id]) return false;
+            return true;
+          });
+          eligible.sort(function(a, b) {
+            return getCountInMonth(a.id) - getCountInMonth(b.id);
+          });
+          if (eligible.length > 0) {
+            var pick = eligible[0];
+            if (!state.data.assignments[dateStr]) state.data.assignments[dateStr] = {};
+            state.data.assignments[dateStr][pick.id] = shiftId;
+            dayAss = state.data.assignments[dateStr];
+          }
+        }
+      });
+    }
+    save(state.data);
+    renderCalendar();
+  }
+
+  document.getElementById('auto-schedule-btn').addEventListener('click', function() {
+    if (!hasAnyRequirement()) {
+      showProgressOverlay('請先設定班表條件（每週各班別需求人數不可皆為零）', false);
+      setTimeout(hideProgressOverlay, 2500);
+      return;
+    }
+    showProgressOverlay('正在進行中', true);
+    setTimeout(function() {
+      runAutoSchedule();
+      hideProgressOverlay();
+    }, 80);
+  });
+
+  // ---- Day Modal ----
+  function refreshDayModalShiftOptions() {
+    var dateStr = document.getElementById('day-modal-date').value;
+    var staffId = document.getElementById('day-modal-staff').value;
+    var shiftSelect = document.getElementById('day-modal-shift');
+    var current = (state.data.assignments[dateStr] || {})[staffId || ''];
+    shiftSelect.innerHTML = '<option value="">-- 選擇班別 --</option>';
+    var staff = staffId ? getStaffById(staffId) : null;
+    state.data.shiftTypes.forEach(function(s) {
+      if (staff && !staffCanWorkShift(staff, s.id)) return;
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      if (s.id === current) opt.selected = true;
+      shiftSelect.appendChild(opt);
+    });
+  }
+
+  function openDayModal(dateStr, staffId) {
+    document.getElementById('day-modal-date').value = dateStr;
+    var d = new Date(dateStr);
+    document.getElementById('day-modal-title').textContent = '排班 - ' + dateStr + '（' + weekdays[d.getDay()] + '）';
+    var staffSelect = document.getElementById('day-modal-staff');
+    staffSelect.innerHTML = '<option value="">-- 選擇人員 --</option>';
+    state.data.staff.forEach(function(s) {
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      if (s.id === staffId) opt.selected = true;
+      staffSelect.appendChild(opt);
+    });
+    refreshDayModalShiftOptions();
+    var current = (state.data.assignments[dateStr] || {})[staffId || ''];
+    if (staffId && current) document.getElementById('day-modal-shift').value = current;
+    document.getElementById('day-modal').classList.remove('hidden');
+    document.getElementById('day-modal').setAttribute('aria-hidden', 'false');
+  }
+
+  function closeDayModal() {
+    document.getElementById('day-modal').classList.add('hidden');
+    document.getElementById('day-modal').setAttribute('aria-hidden', 'true');
+  }
+
+  document.getElementById('day-modal-close').addEventListener('click', closeDayModal);
+  document.getElementById('day-modal').addEventListener('click', function(ev) {
+    if (ev.target === this) closeDayModal();
+  });
+  document.getElementById('day-modal-staff').addEventListener('change', refreshDayModalShiftOptions);
+
+  document.getElementById('day-modal-save').addEventListener('click', function() {
+    var dateStr = document.getElementById('day-modal-date').value;
+    var staffId = document.getElementById('day-modal-staff').value;
+    var shiftId = document.getElementById('day-modal-shift').value;
+    if (!dateStr || !staffId) return;
+    if (!state.data.assignments[dateStr]) state.data.assignments[dateStr] = {};
+    if (shiftId) {
+      state.data.assignments[dateStr][staffId] = shiftId;
+    } else {
+      delete state.data.assignments[dateStr][staffId];
+    }
+    save(state.data);
+    renderCalendar();
+    closeDayModal();
+  });
+
+  document.getElementById('day-modal-clear').addEventListener('click', function() {
+    var dateStr = document.getElementById('day-modal-date').value;
+    var staffId = document.getElementById('day-modal-staff').value;
+    if (!dateStr || !staffId) return;
+    if (state.data.assignments[dateStr]) {
+      delete state.data.assignments[dateStr][staffId];
+      if (Object.keys(state.data.assignments[dateStr]).length === 0) delete state.data.assignments[dateStr];
+    }
+    save(state.data);
+    renderCalendar();
+    closeDayModal();
+  });
+
+  function renderStaffShiftStats() {
+    var y = state.currentYear, m = state.currentMonth;
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    var monthLabel = y + '年' + (m + 1) + '月';
+    document.querySelector('#staff-shift-stats-table').closest('.card').querySelector('h2').textContent = monthLabel + ' 各班別天數統計';
+    var thead = document.getElementById('staff-shift-stats-thead');
+    var tbody = document.getElementById('staff-shift-stats-tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    var thName = document.createElement('th');
+    thName.textContent = '姓名';
+    thead.appendChild(thName);
+    state.data.shiftTypes.forEach(function(shift) {
+      var th = document.createElement('th');
+      th.textContent = shift.name;
+      th.style.color = shift.color || 'var(--text)';
+      thead.appendChild(th);
+    });
+    var staffCounts = {};
+    state.data.staff.forEach(function(s) {
+      staffCounts[s.id] = {};
+      state.data.shiftTypes.forEach(function(shift) {
+        staffCounts[s.id][shift.id] = 0;
+      });
+    });
+    for (var d = 1; d <= lastDay; d++) {
+      var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var dayAss = state.data.assignments[dateStr] || {};
+      for (var staffId in dayAss) {
+        var shiftId = dayAss[staffId];
+        if (staffCounts[staffId] && staffCounts[staffId][shiftId] != null) staffCounts[staffId][shiftId]++;
+      }
+    }
+    state.data.staff.forEach(function(s) {
+      var tr = document.createElement('tr');
+      var tdName = document.createElement('td');
+      tdName.className = 'req-day';
+      tdName.textContent = s.name || '未命名';
+      tr.appendChild(tdName);
+      state.data.shiftTypes.forEach(function(shift) {
+        var td = document.createElement('td');
+        var n = (staffCounts[s.id] && staffCounts[s.id][shift.id]) || 0;
+        td.textContent = n;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ---- Staff ----
+  function renderStaffList() {
+    var ul = document.getElementById('staff-list');
+    ul.innerHTML = '';
+    state.data.staff.forEach(function(s) {
+      var li = document.createElement('li');
+      var summary = [];
+      if (s.allowedShifts && s.allowedShifts.length) summary.push('只上' + s.allowedShifts.map(function(id) { var sh = getShiftById(id); return sh ? sh.name : ''; }).filter(Boolean).join('、'));
+      if (s.disallowedShifts && s.disallowedShifts.length) summary.push('不上' + s.disallowedShifts.map(function(id) { var sh = getShiftById(id); return sh ? sh.name : ''; }).filter(Boolean).join('、'));
+      if (s.unavailableWeekdays && s.unavailableWeekdays.length) summary.push('週' + ['日','一','二','三','四','五','六'].filter(function(_, i) { return s.unavailableWeekdays.indexOf(i) >= 0; }).join('、') + '不能上');
+      if (s.unavailableDates && s.unavailableDates.length) summary.push(s.unavailableDates.length + '天指定休假');
+      var summaryStr = summary.length ? ' <small style="color:var(--text-muted)">' + summary.join('；') + '</small>' : '';
+      li.innerHTML = '<span>' + (s.name || '未命名') + (s.note ? ' <small style="color:var(--text-muted)">' + s.note + '</small>' : '') + summaryStr + '</span><div class="staff-list-actions"><button type="button" class="btn btn-ghost staff-edit-btn" data-id="' + s.id + '">編輯</button><button type="button" class="btn btn-ghost btn-danger" data-id="' + s.id + '">刪除</button></div>';
+      li.querySelector('.staff-edit-btn').addEventListener('click', function() { openStaffEditModal(s); });
+      li.querySelector('.btn-danger').addEventListener('click', function() {
+        if (!confirm('確定要刪除此人員？其排班紀錄也會一併移除。')) return;
+        state.data.staff = state.data.staff.filter(function(x) { return x.id !== s.id; });
+        Object.keys(state.data.assignments).forEach(function(dateStr) {
+          delete state.data.assignments[dateStr][s.id];
+          if (Object.keys(state.data.assignments[dateStr]).length === 0) delete state.data.assignments[dateStr];
+        });
+        save(state.data);
+        renderStaffList();
+        renderCalendar();
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  function openStaffEditModal(staff) {
+    document.getElementById('staff-edit-id').value = staff.id;
+    document.getElementById('staff-edit-title').textContent = '編輯人員：' + (staff.name || '');
+    document.getElementById('staff-edit-name').value = staff.name || '';
+    document.getElementById('staff-edit-note').value = staff.note || '';
+    var allowed = staff.allowedShifts || [];
+    var disallowed = staff.disallowedShifts || [];
+    var unavWeek = staff.unavailableWeekdays || [];
+    var allowedEl = document.getElementById('staff-edit-allowed-shifts');
+    var disallowedEl = document.getElementById('staff-edit-disallowed-shifts');
+    allowedEl.innerHTML = '';
+    disallowedEl.innerHTML = '';
+    state.data.shiftTypes.forEach(function(shift) {
+      var la = document.createElement('label');
+      var ca = document.createElement('input');
+      ca.type = 'checkbox';
+      ca.dataset.shiftId = shift.id;
+      if (allowed.indexOf(shift.id) >= 0) ca.checked = true;
+      la.appendChild(ca);
+      la.appendChild(document.createTextNode(shift.name));
+      allowedEl.appendChild(la);
+      var ld = document.createElement('label');
+      var cd = document.createElement('input');
+      cd.type = 'checkbox';
+      cd.dataset.shiftId = shift.id;
+      if (disallowed.indexOf(shift.id) >= 0) cd.checked = true;
+      ld.appendChild(cd);
+      ld.appendChild(document.createTextNode(shift.name));
+      disallowedEl.appendChild(ld);
+    });
+    var weekEl = document.getElementById('staff-edit-unavailable-weekdays');
+    weekEl.innerHTML = '';
+    ['週日','週一','週二','週三','週四','週五','週六'].forEach(function(label, i) {
+      var l = document.createElement('label');
+      var c = document.createElement('input');
+      c.type = 'checkbox';
+      c.dataset.dow = String(i);
+      if (unavWeek.indexOf(i) >= 0) c.checked = true;
+      c.addEventListener('change', function() {
+        var staffId = document.getElementById('staff-edit-id').value;
+        var s = getStaffById(staffId);
+        if (!s) return;
+        var dow = parseInt(this.dataset.dow, 10);
+        syncWeekdaysToCalendar(s, dow, this.checked);
+        save(state.data);
+        renderStaffEditCalendar();
+        refreshStaffEditUnavailableList();
+      });
+      l.appendChild(c);
+      l.appendChild(document.createTextNode(label));
+      weekEl.appendChild(l);
+    });
+    var t = new Date();
+    staffEditCalYear = t.getFullYear();
+    staffEditCalMonth = t.getMonth();
+    renderStaffEditCalendar();
+    refreshStaffEditUnavailableList();
+    document.getElementById('staff-edit-modal').classList.remove('hidden');
+    document.getElementById('staff-edit-modal').setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+  }
+
+  var staffEditCalYear = new Date().getFullYear();
+  var staffEditCalMonth = new Date().getMonth();
+
+  function renderStaffEditCalendar() {
+    var staffId = document.getElementById('staff-edit-id').value;
+    var staff = getStaffById(staffId);
+    var unavSet = {};
+    if (staff && staff.unavailableDates) staff.unavailableDates.forEach(function(d) { unavSet[d] = true; });
+    var y = staffEditCalYear, m = staffEditCalMonth;
+    document.getElementById('staff-edit-cal-title').textContent = y + '年' + (m + 1) + '月';
+    var first = new Date(y, m, 1);
+    var startPad = first.getDay();
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    var prevLast = new Date(y, m, 0).getDate();
+    var todayStr = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
+    var grid = document.getElementById('staff-edit-cal-grid');
+    grid.innerHTML = '';
+    ['日','一','二','三','四','五','六'].forEach(function(w) {
+      var cell = document.createElement('div');
+      cell.className = 'cal-weekday';
+      cell.textContent = w;
+      grid.appendChild(cell);
+    });
+    for (var i = 0; i < startPad; i++) {
+      var d = prevLast - startPad + i + 1;
+      var cell = document.createElement('div');
+      cell.className = 'cal-day other-month';
+      cell.textContent = d;
+      grid.appendChild(cell);
+    }
+    for (var d = 1; d <= lastDay; d++) {
+      var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var cell = document.createElement('div');
+      cell.className = 'cal-day';
+      cell.textContent = d;
+      cell.dataset.date = dateStr;
+      if (dateStr === todayStr) cell.classList.add('today');
+      if (unavSet[dateStr]) cell.classList.add('unavailable');
+      cell.addEventListener('click', function() {
+        var staffId2 = document.getElementById('staff-edit-id').value;
+        var staff2 = getStaffById(staffId2);
+        if (!staff2) return;
+        var ds = this.dataset.date;
+        staff2.unavailableDates = staff2.unavailableDates || [];
+        var idx = staff2.unavailableDates.indexOf(ds);
+        if (idx >= 0) {
+          staff2.unavailableDates = staff2.unavailableDates.slice(0, idx).concat(staff2.unavailableDates.slice(idx + 1));
+        } else {
+          staff2.unavailableDates = staff2.unavailableDates.slice();
+          staff2.unavailableDates.push(ds);
+          staff2.unavailableDates.sort();
+        }
+        save(state.data);
+        renderStaffEditCalendar();
+        refreshStaffEditUnavailableList();
+      });
+      grid.appendChild(cell);
+    }
+    var rest = 42 - (startPad + lastDay);
+    for (var i = 0; i < rest; i++) {
+      var cell = document.createElement('div');
+      cell.className = 'cal-day other-month';
+      cell.textContent = i + 1;
+      grid.appendChild(cell);
+    }
+  }
+
+  function getDateStringsForWeekday(dow, daysBack, daysAhead) {
+    var out = [];
+    var start = new Date();
+    start.setDate(start.getDate() - (daysBack || 365));
+    var end = new Date();
+    end.setDate(end.getDate() + (daysAhead || 365));
+    for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (d.getDay() === dow) {
+        out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+      }
+    }
+    return out;
+  }
+
+  function syncWeekdaysToCalendar(staff, dow, checked) {
+    staff.unavailableWeekdays = staff.unavailableWeekdays || [];
+    var idx = staff.unavailableWeekdays.indexOf(dow);
+    if (checked) {
+      if (idx < 0) staff.unavailableWeekdays = staff.unavailableWeekdays.slice().concat([dow]).sort(function(a,b){return a-b;});
+      var toAdd = getDateStringsForWeekday(dow, 365, 365);
+      staff.unavailableDates = staff.unavailableDates || [];
+      var set = {};
+      staff.unavailableDates.forEach(function(d){ set[d] = true; });
+      toAdd.forEach(function(d){ set[d] = true; });
+      staff.unavailableDates = Object.keys(set).sort();
+    } else {
+      if (idx >= 0) staff.unavailableWeekdays = staff.unavailableWeekdays.slice().filter(function(x){ return x !== dow; });
+      staff.unavailableDates = (staff.unavailableDates || []).filter(function(dateStr) {
+        return new Date(dateStr).getDay() !== dow;
+      });
+    }
+  }
+
+  function refreshStaffEditUnavailableList() {
+    var staffId = document.getElementById('staff-edit-id').value;
+    var staff = getStaffById(staffId);
+    var dates = (staff && staff.unavailableDates) ? staff.unavailableDates.slice().sort() : [];
+    var el = document.getElementById('staff-edit-unavailable-dates');
+    el.innerHTML = '';
+    if (dates.length === 0) {
+      el.textContent = '（無）';
+      return;
+    }
+    dates.forEach(function(dateStr) {
+      var span = document.createElement('span');
+      span.className = 'date-tag';
+      span.textContent = dateStr;
+      var rm = document.createElement('span');
+      rm.className = 'remove-date';
+      rm.textContent = ' ×';
+      rm.dataset.date = dateStr;
+      rm.title = '點擊移除';
+      span.appendChild(rm);
+      el.appendChild(span);
+    });
+  }
+
+  document.getElementById('staff-edit-unavailable-dates').addEventListener('click', function(ev) {
+    if (!ev.target.classList.contains('remove-date')) return;
+    var dateStr = ev.target.dataset.date;
+    var staffId = document.getElementById('staff-edit-id').value;
+    var staff = getStaffById(staffId);
+    if (!staff) return;
+    staff.unavailableDates = (staff.unavailableDates || []).filter(function(d) { return d !== dateStr; });
+    save(state.data);
+    renderStaffEditCalendar();
+    refreshStaffEditUnavailableList();
+  });
+
+  document.getElementById('staff-edit-cal-prev').addEventListener('click', function() {
+    if (staffEditCalMonth === 0) { staffEditCalYear--; staffEditCalMonth = 11; } else staffEditCalMonth--;
+    renderStaffEditCalendar();
+  });
+  document.getElementById('staff-edit-cal-next').addEventListener('click', function() {
+    if (staffEditCalMonth === 11) { staffEditCalYear++; staffEditCalMonth = 0; } else staffEditCalMonth++;
+    renderStaffEditCalendar();
+  });
+  document.getElementById('staff-edit-reset-dates-btn').addEventListener('click', function() {
+    var staffId = document.getElementById('staff-edit-id').value;
+    var staff = getStaffById(staffId);
+    if (!staff) return;
+    if (!confirm('確定要清空此人「指定日期不能上班」的所有設定？')) return;
+    staff.unavailableDates = [];
+    save(state.data);
+    renderStaffEditCalendar();
+    refreshStaffEditUnavailableList();
+  });
+
+  function closeStaffEditModal() {
+    document.getElementById('staff-edit-modal').classList.add('hidden');
+    document.getElementById('staff-edit-modal').setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+  }
+
+  document.getElementById('staff-edit-close').addEventListener('click', closeStaffEditModal);
+  document.getElementById('staff-edit-modal').addEventListener('click', function(ev) { if (ev.target === this) closeStaffEditModal(); });
+
+  document.getElementById('staff-edit-save').addEventListener('click', function() {
+    var staffId = document.getElementById('staff-edit-id').value;
+    var staff = getStaffById(staffId);
+    if (!staff) { closeStaffEditModal(); return; }
+    staff.name = (document.getElementById('staff-edit-name').value || '').trim() || '未命名';
+    staff.note = (document.getElementById('staff-edit-note').value || '').trim();
+    staff.allowedShifts = [];
+    document.querySelectorAll('#staff-edit-allowed-shifts input:checked').forEach(function(cb) {
+      staff.allowedShifts.push(cb.dataset.shiftId);
+    });
+    staff.disallowedShifts = [];
+    document.querySelectorAll('#staff-edit-disallowed-shifts input:checked').forEach(function(cb) {
+      staff.disallowedShifts.push(cb.dataset.shiftId);
+    });
+    staff.unavailableWeekdays = [];
+    document.querySelectorAll('#staff-edit-unavailable-weekdays input:checked').forEach(function(cb) {
+      staff.unavailableWeekdays.push(parseInt(cb.dataset.dow, 10));
+    });
+    save(state.data);
+    renderStaffList();
+    renderCalendar();
+    closeStaffEditModal();
+  });
+
+  document.getElementById('add-staff').addEventListener('click', function() {
+    var name = (document.getElementById('staff-name').value || '').trim();
+    var msg = document.getElementById('staff-msg');
+    if (!name) {
+      msg.textContent = '請輸入姓名';
+      msg.className = 'msg error';
+      msg.classList.remove('hidden');
+      return;
+    }
+    state.data.staff.push({
+      id: uuid(),
+      name: name,
+      note: (document.getElementById('staff-note').value || '').trim(),
+      allowedShifts: [],
+      disallowedShifts: [],
+      unavailableWeekdays: [],
+      unavailableDates: []
+    });
+    save(state.data);
+    document.getElementById('staff-name').value = '';
+    document.getElementById('staff-note').value = '';
+    msg.textContent = '已新增';
+    msg.className = 'msg success';
+    msg.classList.remove('hidden');
+    setTimeout(function() { msg.classList.add('hidden'); }, 2000);
+    renderStaffList();
+  });
+
+  // ---- Shifts ----
+  function renderShiftList() {
+    var ul = document.getElementById('shift-list');
+    ul.innerHTML = '';
+    state.data.shiftTypes.forEach(function(s) {
+      var li = document.createElement('li');
+      var noteStr = (s.note || '').trim() ? ' <small style="color:var(--text-muted)">' + (s.note || '').trim() + '</small>' : '';
+      li.innerHTML = '<span><span class="badge" style="background:' + (s.color || '#64748b') + ';color:#fff">' + (s.name || '未命名') + '</span>' + noteStr + '</span><div class="staff-list-actions"><button type="button" class="btn btn-ghost shift-edit-btn" data-id="' + s.id + '">編輯</button><button type="button" class="btn btn-ghost btn-danger" data-id="' + s.id + '">刪除</button></div>';
+      li.querySelector('.shift-edit-btn').addEventListener('click', function() { openShiftEditModal(s); });
+      li.querySelector('.btn-danger').addEventListener('click', function() {
+        if (!confirm('確定要刪除此班別？使用此班別的排班會變成未指定。')) return;
+        state.data.shiftTypes = state.data.shiftTypes.filter(function(x) { return x.id !== s.id; });
+        Object.keys(state.data.assignments).forEach(function(dateStr) {
+          Object.keys(state.data.assignments[dateStr]).forEach(function(staffId) {
+            if (state.data.assignments[dateStr][staffId] === s.id) delete state.data.assignments[dateStr][staffId];
+          });
+          if (Object.keys(state.data.assignments[dateStr]).length === 0) delete state.data.assignments[dateStr];
+        });
+        save(state.data);
+        renderShiftList();
+        renderCalendar();
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  function openShiftEditModal(shift) {
+    document.getElementById('shift-edit-id').value = shift.id;
+    document.getElementById('shift-edit-title').textContent = '編輯班別：' + (shift.name || '');
+    document.getElementById('shift-edit-name').value = shift.name || '';
+    document.getElementById('shift-edit-color').value = shift.color || '#3b82f6';
+    document.getElementById('shift-edit-note').value = shift.note || '';
+    document.getElementById('shift-edit-modal').classList.remove('hidden');
+    document.getElementById('shift-edit-modal').setAttribute('aria-hidden', 'false');
+  }
+
+  function closeShiftEditModal() {
+    document.getElementById('shift-edit-modal').classList.add('hidden');
+    document.getElementById('shift-edit-modal').setAttribute('aria-hidden', 'true');
+  }
+
+  document.getElementById('shift-edit-close').addEventListener('click', closeShiftEditModal);
+  document.getElementById('shift-edit-modal').addEventListener('click', function(ev) { if (ev.target === this) closeShiftEditModal(); });
+
+  document.getElementById('shift-edit-save').addEventListener('click', function() {
+    var shiftId = document.getElementById('shift-edit-id').value;
+    var shift = state.data.shiftTypes.find(function(x) { return x.id === shiftId; });
+    if (!shift) { closeShiftEditModal(); return; }
+    shift.name = (document.getElementById('shift-edit-name').value || '').trim() || '未命名';
+    shift.color = document.getElementById('shift-edit-color').value;
+    shift.note = (document.getElementById('shift-edit-note').value || '').trim();
+    save(state.data);
+    renderShiftList();
+    renderCalendar();
+    renderRequirementsPanel();
+    closeShiftEditModal();
+  });
+
+  document.getElementById('add-shift').addEventListener('click', function() {
+    var name = (document.getElementById('shift-name').value || '').trim();
+    var msg = document.getElementById('shift-msg');
+    if (!name) {
+      msg.textContent = '請輸入班別名稱';
+      msg.className = 'msg error';
+      msg.classList.remove('hidden');
+      return;
+    }
+    state.data.shiftTypes.push({ id: uuid(), name: name, color: document.getElementById('shift-color').value, note: '' });
+    save(state.data);
+    document.getElementById('shift-name').value = '';
+    msg.textContent = '已新增';
+    msg.className = 'msg success';
+    msg.classList.remove('hidden');
+    setTimeout(function() { msg.classList.add('hidden'); }, 2000);
+    renderShiftList();
+  });
+
+  // ---- Export PDF ----
+  function exportToPdf() {
+    var y = state.currentYear, m = state.currentMonth;
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    var weekdays = ['日','一','二','三','四','五','六'];
+    var cw = 595, ch = 842;
+    var canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 20px "PingFang TC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText(y + '年' + (m + 1) + '月  班表', 40, 45);
+    ctx.font = '11px "PingFang TC", "Microsoft JhengHei", sans-serif';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 0.5;
+    var rowH = 22, colDate = 95, colContent = cw - 55 - colDate;
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('日期', 40, 72);
+    ctx.fillText('排班內容', colDate + 10, 72);
+    ctx.beginPath();
+    ctx.moveTo(40, 78);
+    ctx.lineTo(cw - 40, 78);
+    ctx.stroke();
+    ctx.fillStyle = '#1e293b';
+    for (var d = 1; d <= lastDay; d++) {
+      var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var dow = new Date(y, m, d).getDay();
+      var yPos = 72 + (d - 1) * rowH + 16;
+      ctx.fillText(dateStr + ' 週' + weekdays[dow], 40, yPos);
+      var dayAss = state.data.assignments[dateStr] || {};
+      var parts = [];
+      Object.keys(dayAss).forEach(function(staffId) {
+        var staff = getStaffById(staffId);
+        var shift = getShiftById(dayAss[staffId]);
+        parts.push((staff ? staff.name : '?') + ' ' + (shift ? shift.name : '?'));
+      });
+      var content = parts.length ? parts.join('、') : '—';
+      if (ctx.measureText(content).width > colContent) {
+        while (content.length && ctx.measureText(content + '…').width > colContent) content = content.slice(0, -1);
+        content = content + '…';
+      }
+      ctx.fillText(content, colDate + 10, yPos);
+      ctx.beginPath();
+      ctx.moveTo(40, 72 + d * rowH);
+      ctx.lineTo(cw - 40, 72 + d * rowH);
+      ctx.stroke();
+    }
+    try {
+      var JsPDF = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : (window.jsPDF || null);
+      if (!JsPDF) throw new Error('jsPDF 未載入');
+      var doc = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 595, 842);
+      doc.save('班表-' + y + '-' + String(m + 1).padStart(2, '0') + '.pdf');
+      var msg = document.getElementById('export-msg');
+      msg.textContent = '已下載 PDF';
+      msg.className = 'msg success';
+      msg.classList.remove('hidden');
+      setTimeout(function() { msg.classList.add('hidden'); }, 3000);
+    } catch (e) {
+      var msg = document.getElementById('export-msg');
+      msg.textContent = 'PDF 產生失敗：' + (e.message || e);
+      msg.className = 'msg error';
+      msg.classList.remove('hidden');
+    }
+  }
+
+  document.getElementById('export-pdf').addEventListener('click', exportToPdf);
+
+  function escapeCsvCell(s) {
+    if (s == null) return '';
+    var t = String(s);
+    if (/[",\n\r]/.test(t)) return '"' + t.replace(/"/g, '""') + '"';
+    return t;
+  }
+
+  function exportToCsv() {
+    var y = state.currentYear, m = state.currentMonth;
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    var weekdays = ['日','一','二','三','四','五','六'];
+    var rows = [['日期', '星期', '排班內容']];
+    for (var d = 1; d <= lastDay; d++) {
+      var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var dow = new Date(y, m, d).getDay();
+      var dayAss = state.data.assignments[dateStr] || {};
+      var parts = [];
+      Object.keys(dayAss).forEach(function(staffId) {
+        var staff = getStaffById(staffId);
+        var shift = getShiftById(dayAss[staffId]);
+        parts.push((staff ? staff.name : '?') + ' ' + (shift ? shift.name : '?'));
+      });
+      rows.push([dateStr, '週' + weekdays[dow], parts.length ? parts.join('、') : '—']);
+    }
+    var csv = '\uFEFF' + rows.map(function(row) {
+      return row.map(escapeCsvCell).join(',');
+    }).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '班表-' + y + '-' + String(m + 1).padStart(2, '0') + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    var msg = document.getElementById('export-msg');
+    msg.textContent = '已下載表格（CSV）';
+    msg.className = 'msg success';
+    msg.classList.remove('hidden');
+    setTimeout(function() { msg.classList.add('hidden'); }, 3000);
+  }
+
+  document.getElementById('export-csv').addEventListener('click', exportToCsv);
+
+  // Init: 若沒有預設班別則建立
+  if (state.data.shiftTypes.length === 0) {
+    state.data.shiftTypes = [
+      { id: uuid(), name: '早班', color: '#3b82f6', note: '' },
+      { id: uuid(), name: '晚班', color: '#ef4444', note: '' },
+      { id: uuid(), name: '休假', color: '#22c55e', note: '' }
+    ];
+    save(state.data);
+  }
+  renderStaffList();
+  renderShiftList();
+  renderCalendar();
+})();
+  </script>
+</body>
+</html>
