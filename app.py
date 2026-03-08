@@ -220,7 +220,7 @@ HTML = """
         var id = item.getAttribute('id');
         var href = item.getAttribute('href') || '';
         var mt = (item.getAttribute('media-type') || '').toLowerCase();
-        if (id && (mt.indexOf('html') >= 0 || /\.(x?html?)$/i.test(href))) manifest[id] = href;
+        if (id && (mt.indexOf('html') >= 0 || /\\.(x?html?)$/i.test(href))) manifest[id] = href;
       }
       var spine = [];
       var refs = doc.getElementsByTagName ? doc.getElementsByTagName('itemref') : doc.querySelectorAll('itemref');
@@ -376,6 +376,7 @@ HTML = """
   </script>
 </body>
 </html>
+"""
 
 
 @app.route("/")
@@ -436,7 +437,7 @@ def convert():
 
 @app.route("/api/convert-text", methods=["POST"])
 def api_convert_text():
-    """POST JSON { \"text\": \"...\", \"lang\": \"zh\" | \"en\" }，回傳轉換／翻譯後的書名或短句（用於檔名、章節名、metadata）。"""
+    """POST JSON: text, lang (zh or en). Returns converted title/short text for filename or metadata."""
     try:
         data = request.get_json(force=True, silent=True) or {}
         text = (data.get("text") or "").strip()[:500]
@@ -457,7 +458,7 @@ def api_convert_text():
 
 @app.route("/api/detect-lang", methods=["POST"])
 def api_detect_lang():
-    """POST JSON { \"text\": \"...\" }，回傳 { \"language\": \"en\" | \"zh-cn\" | \"zh\" }。"""
+    """POST JSON: text. Returns language: en, zh-cn, or zh."""
     try:
         data = request.get_json(force=True, silent=True) or {}
         text = (data.get("text") or "").strip()[:20000]
@@ -473,7 +474,7 @@ def api_detect_lang():
 
 @app.route("/api/translate-chapter", methods=["POST"])
 def api_translate_chapter():
-    """POST JSON { \"html\": \"...\", \"glossary\": {} }。英文→繁中，整書人名／術語一致由 glossary 在章節間傳遞並更新後回傳。"""
+    """POST JSON: html, glossary. EN to ZH-TW, glossary kept per book."""
     try:
         data = request.get_json(force=True, silent=True) or {}
         html = data.get("html") or ""
@@ -516,7 +517,7 @@ def api_translate_chapter():
 
 @app.route("/api/convert-chapter-zh", methods=["POST"])
 def api_convert_chapter_zh():
-    """POST JSON { \"html\": \"...\", \"glossary\": {} }。簡體→臺灣繁體＋兩岸用語；glossary 為整書統一用詞（簡→繁）可選覆寫，會原樣回傳供下一章使用。"""
+    """POST JSON: html, glossary. Simplified to TW traditional, glossary optional override."""
     try:
         data = request.get_json(force=True, silent=True) or {}
         html = data.get("html") or ""
