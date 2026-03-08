@@ -317,7 +317,8 @@ HTML = """
               body: JSON.stringify({ text: title, lang: lang })
             }).then(function(r) { return r.json(); }).then(function(res) {
               var convertedTitle = (res.converted && res.converted.trim()) ? res.converted.trim() : title;
-              var safeName = convertedTitle.replace(/[<>:"/\\\\|?*]/g, '').replace(/\\s+/g, ' ').trim().slice(0, 100) || 'book';
+              function safe(s) { return (s || '').replace(/[<>:"/\\\\|?*]/g, '').replace(/\\s+/g, ' ').trim().slice(0, 80); }
+              var safeName = (safe(convertedTitle) || 'book') + '（' + (safe(title) || '') + '）';
               var newOpfStr = opfStr;
               if (convertedTitle) {
                 var esc = convertedTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -342,7 +343,7 @@ HTML = """
             var meta = result.meta;
             var a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = (meta.safeName || 'book') + '_tw.epub';
+            a.download = (meta.safeName || 'book') + '.epub';
             a.click();
             URL.revokeObjectURL(a.href);
             setProgress('下載已開始。');
@@ -388,12 +389,22 @@ def convert():
         f.save(str(input_path))
         out_path = run_conversion(str(input_path))
         out_name = Path(out_path).name
-        # 把輸出移到 OUTPUT_DIR 並用 job 名供下載
         final_name = f"{job_id}_{Path(out_path).name}"
         final_path = OUTPUT_DIR / final_name
         import shutil
         shutil.move(out_path, str(final_path))
-        return redirect(url_for("download", filename=final_name))
+        original_stem = Path(f.filename).stem
+        try:
+            import ebooklib
+            from ebooklib import epub as epub_lib
+            book = epub_lib.read_epub(str(final_path))
+            tl = book.get_metadata("DC", "title")
+            converted_title = (tl[0][0] if tl and tl[0] else "") or original_stem
+        except Exception:
+            converted_title = original_stem
+        from urllib.parse import urlencode
+        q = urlencode({"original": original_stem, "converted": converted_title})
+        return redirect(url_for("download", filename=final_name) + "?" + q)
     except Exception as e:
         return redirect(url_for("index", error=f"轉換失敗：{e}"))
     finally:
@@ -462,8 +473,25 @@ def api_translate_chapter():
         text = get_text_from_html(html)
         if not text.strip():
             return jsonify({"translated_html": html, "glossary": glossary})
-        new_text, glossary = translate_english_to_traditional(text, glossary=glossary, engine="google")
-        new_html = set_text_in_html(html, new_text)
+        lines = text.split("\n")
+        text_to_convert = "\n".join(ln for ln in lines if ln.strip())
+        if not text_to_convert.strip():
+            return jsonify({"translated_html": html, "glossary": glossary})
+        new_text, glossary = translate_english_to_traditional(text_to_convert, glossary=glossary, engine="google")
+        raw_paras = [p.strip() for p in re.split(r"\n+", new_text) if p.strip()]
+        new_paras = [None] * len(lines)
+        j = 0
+        last_assigned_idx = None
+        for i in range(len(lines)):
+            if lines[i].strip():
+                if j < len(raw_paras):
+                    new_paras[i] = raw_paras[j]
+                    j += 1
+                    last_assigned_idx = i
+        if j < len(raw_paras) and last_assigned_idx is not None:
+            tail = "\n".join(raw_paras[j:])
+            new_paras[last_assigned_idx] = (new_paras[last_assigned_idx] or "") + ("\n" + tail if tail else "")
+        new_html = set_text_in_html(html, new_paras)
         return jsonify({"translated_html": new_html, "glossary": glossary})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -488,11 +516,27 @@ def api_convert_chapter_zh():
         text = get_text_from_html(html)
         if not text.strip():
             return jsonify({"converted_html": html, "glossary": glossary})
-        new_text = convert_simplified_to_traditional(text)
-        # 整書用詞統一：套用本書級 glossary（例如書內專有名詞鎖定），依詞長由長到短
+        lines = text.split("\n")
+        text_to_convert = "\n".join(ln for ln in lines if ln.strip())
+        if not text_to_convert.strip():
+            return jsonify({"converted_html": html, "glossary": glossary})
+        new_text = convert_simplified_to_traditional(text_to_convert)
         for k in sorted(glossary.keys(), key=lambda x: -len(x)):
             new_text = new_text.replace(k, glossary[k])
-        new_html = set_text_in_html(html, new_text)
+        raw_paras = [p.strip() for p in re.split(r"\n+", new_text) if p.strip()]
+        new_paras = [None] * len(lines)
+        j = 0
+        last_assigned_idx = None
+        for i in range(len(lines)):
+            if lines[i].strip():
+                if j < len(raw_paras):
+                    new_paras[i] = raw_paras[j]
+                    j += 1
+                    last_assigned_idx = i
+        if j < len(raw_paras) and last_assigned_idx is not None:
+            tail = "\n".join(raw_paras[j:])
+            new_paras[last_assigned_idx] = (new_paras[last_assigned_idx] or "") + ("\n" + tail if tail else "")
+        new_html = set_text_in_html(html, new_paras)
         return jsonify({"converted_html": new_html, "glossary": glossary})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -503,12 +547,17 @@ def download(filename: str):
     path = OUTPUT_DIR / filename
     if not path.is_file():
         return redirect(url_for("index", error="檔案不存在或已清除"))
-    # 下載後可選擇刪除暫存（此處保留，方便重複下載）
-    # 下載檔名去掉 job id 前綴，例如 a1b2c3d4_書名_tw.epub → 書名_tw.epub
-    if len(filename) > 9 and filename[8:9] == "_":
-        download_name = filename[9:]
+    # 檔名格式：翻譯名稱（原文名稱）.epub
+    converted = (request.args.get("converted") or "").strip()
+    original = (request.args.get("original") or "").strip()
+    if converted or original:
+        def safe(s):
+            return (s or "").replace("\\", "").replace("/", "").replace(":", "").replace("*", "").replace("?", "").replace('"', "").replace("<", "").replace(">", "").replace("|", "").strip()[:80]
+        download_name = (safe(converted) or "book") + "（" + (safe(original) or "") + "）.epub"
     else:
         download_name = path.name
+        if len(filename) > 9 and filename[8:9] == "_":
+            download_name = filename[9:]
     return send_file(path, as_attachment=True, download_name=download_name)
 
 
