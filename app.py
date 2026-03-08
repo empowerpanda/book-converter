@@ -91,106 +91,181 @@ HTML = """
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>書籍轉換工具</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Orbitron:wght@600;700&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
-      max-width: 560px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-      color: #1a1a1a;
-      background: #f8f9fa;
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0a0e17 0%, #0f1629 35%, #0d1322 100%);
+      color: #e2e8f0;
+      padding: 2.5rem 1rem 4rem;
     }
-    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #333; }
-    p.sub { color: #666; font-size: 0.95rem; margin-bottom: 1.5rem; }
+    .wrap { max-width: 520px; margin: 0 auto; }
+    .hero {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .hero h1 {
+      font-family: "Orbitron", sans-serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 50%, #0891b2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .sub {
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+      color: #94a3b8;
+      font-weight: 500;
+    }
     .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 1.5rem;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-      margin-bottom: 1rem;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 16px;
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
     }
-    label {
+    .card label {
       display: block;
       margin-bottom: 0.5rem;
-      font-weight: 500;
-      color: #444;
+      font-weight: 600;
+      color: #cbd5e1;
+      font-size: 0.9rem;
     }
     input[type="file"] {
       width: 100%;
-      padding: 0.75rem;
-      border: 2px dashed #ccc;
-      border-radius: 8px;
-      background: #fafafa;
+      padding: 1rem;
+      border: 2px dashed rgba(34, 211, 238, 0.4);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.5);
+      color: #94a3b8;
       cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
     }
-    input[type="file"]:hover { border-color: #6b9eed; background: #f0f6ff; }
+    input[type="file"]:hover {
+      border-color: #22d3ee;
+      background: rgba(34, 211, 238, 0.06);
+    }
     button {
       width: 100%;
-      margin-top: 1rem;
-      padding: 0.85rem 1.2rem;
+      margin-top: 1.25rem;
+      padding: 1rem 1.5rem;
       font-size: 1rem;
       font-weight: 600;
-      color: #fff;
-      background: #2563eb;
+      font-family: "Noto Sans TC", sans-serif;
+      color: #0f172a;
+      background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
       border: none;
-      border-radius: 8px;
+      border-radius: 12px;
       cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
     }
-    button:hover { background: #1d4ed8; }
-    button:disabled { background: #94a3b8; cursor: not-allowed; }
+    button:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(34, 211, 238, 0.35); }
+    button:disabled {
+      background: #475569;
+      color: #94a3b8;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
     .msg {
       margin-top: 1rem;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
       font-size: 0.9rem;
     }
-    .msg.success { background: #dcfce7; color: #166534; }
-    .msg.error { background: #fee2e2; color: #991b1b; }
-    .msg.info { background: #e0f2fe; color: #075985; }
+    .msg.success {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .msg.error {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .msg.info {
+      background: rgba(34, 211, 238, 0.08);
+      color: #a5f3fc;
+      border: 1px solid rgba(34, 211, 238, 0.2);
+    }
     a.dl {
       display: inline-block;
-      margin-top: 0.5rem;
-      padding: 0.5rem 1rem;
-      background: #16a34a;
+      margin-top: 0.75rem;
+      padding: 0.65rem 1.25rem;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       color: #fff;
       text-decoration: none;
-      border-radius: 6px;
-      font-weight: 500;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: transform 0.15s, box-shadow 0.2s;
     }
-    a.dl:hover { background: #15803d; }
-    #progress { margin-top: 1rem; font-size: 0.9rem; color: #555; }
-    #progress.err { color: #991b1b; }
+    a.dl:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+    #progress { margin-top: 1rem; font-size: 0.9rem; color: #94a3b8; }
+    #progress.err { color: #f87171; }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(34, 211, 238, 0.15);
+      text-align: center;
+      font-size: 0.8rem;
+      color: #64748b;
+      line-height: 1.9;
+    }
+    .footer a { color: #22d3ee; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
-  <h1>書籍轉換工具</h1>
-  <p class="sub">上傳 .epub（簡體或英文），自動轉成臺灣繁體 .epub 並可下載。</p>
+  <div class="wrap">
+    <header class="hero">
+      <h1>書籍轉換工具</h1>
+      <p class="sub">上傳 .epub（簡體或英文），自動轉成臺灣繁體 .epub 並可下載</p>
+    </header>
 
-  <div class="card">
-    <form id="form" method="post" action="/convert" enctype="multipart/form-data">
-      <label for="file">選擇 .epub 檔案</label>
-      <input type="file" name="file" id="file" accept=".epub" required>
-      <button type="submit" id="btn">開始轉換</button>
-      <p id="progress"></p>
-    </form>
-    <p class="msg info" style="margin-top:1rem;">
-      支援：簡體→臺灣繁體（含用語轉換）；英文→繁體中文（整書術語一致）。簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<strong>整本書的語意、用詞會統一</strong>（英文：人名／術語 glossary 跨章傳遞；簡體：兩岸用語表整書統一套用）。
-    </p>
-  </div>
+    <div class="card">
+      <form id="form" method="post" action="/convert" enctype="multipart/form-data">
+        <label for="file">選擇 .epub 檔案</label>
+        <input type="file" name="file" id="file" accept=".epub" required>
+        <button type="submit" id="btn">開始轉換</button>
+        <p id="progress"></p>
+      </form>
+      <p class="msg info" style="margin-top:1rem;">
+        支援：簡體→臺灣繁體（含用語轉換）；英文→繁體中文（整書術語一致）。簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<strong>整本書的語意、用詞會統一</strong>（英文：人名／術語 glossary 跨章傳遞；簡體：兩岸用語表整書統一套用）。
+      </p>
+    </div>
 
-  {% if download_url %}
-  <div class="card">
-    <p class="msg success">轉換完成，請下載檔案。</p>
-    <a class="dl" href="{{ download_url }}" download>下載 {{ download_name }}</a>
+    {% if download_url %}
+    <div class="card">
+      <p class="msg success">轉換完成，請下載檔案。</p>
+      <a class="dl" href="{{ download_url }}" download>下載 {{ download_name }}</a>
+    </div>
+    {% endif %}
+    {% if error %}
+    <div class="card">
+      <p class="msg error">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <footer class="footer">
+      <p>本工具僅限非商業行為自用，同時請自行留意版權相關法規。</p>
+      <p>本專案由熊貓原點有限公司維護</p>
+      <p>若有任何本工具之建議，歡迎來信：<a href="mailto:panda@nps.tw">panda@nps.tw</a></p>
+      <p>本司代理各領域軟體、硬體採購，詳情請洽詢：<a href="https://nps.tw" target="_blank" rel="noopener">nps.tw</a></p>
+    </footer>
   </div>
-  {% endif %}
-  {% if error %}
-  <div class="card">
-    <p class="msg error">{{ error }}</p>
-  </div>
-  {% endif %}
 
   <script>
   (function() {
