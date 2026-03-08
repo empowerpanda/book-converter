@@ -206,7 +206,6 @@ HTML = """
     a.dl:hover { background: #374151; }
     #progress { margin-top: 1rem; font-size: 0.9rem; font-weight: 500; color: #4b5563; }
     #progress.err { color: #991b1b; }
-    #step { margin-top: 0.35rem; font-size: 0.8rem; color: #6b7280; }
     .cancel-btn {
       margin-top: 1rem;
       width: 100%;
@@ -255,16 +254,13 @@ HTML = """
         <input type="file" name="file" id="file" accept=".epub" required>
         <button type="submit" id="btn">開始轉換</button>
         <p id="progress"></p>
-        <p id="step"></p>
         <button type="button" id="cancelBtn" class="cancel-btn" style="display:none;">取消並重新進行</button>
     </form>
       <p class="msg info" style="margin-top:1rem;">
         支援：簡體→臺灣繁體（含用語轉換）<br>
-        英文→繁體中文（包含檢視術語一致）。<br>
+        英文→繁體中文（包含檢視術語一致）<br>
         <br>
-        簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<br>
-        整本書的語意、用詞會統一（英文：人名／術語；簡體：套用兩岸用語表）。<br>
-        大書也可在網頁轉換（檔案在您電腦內逐章傳送，單章過大時會自動切段）。僅在無法偵測語言而改為整本上傳時，單檔需 4 MB 以內。
+        本翻譯皆設定整本書的語意、用詞（尤其人名）會進行統一
       </p>
     </div>
 
@@ -294,22 +290,17 @@ HTML = """
     var fileInput = document.getElementById('file');
     var btn = document.getElementById('btn');
     var progress = document.getElementById('progress');
-    var stepEl = document.getElementById('step');
     var cancelBtn = document.getElementById('cancelBtn');
 
     function setProgress(txt, isErr) {
       progress.textContent = txt;
       progress.className = isErr ? 'msg err' : '';
     }
-    function setStep(txt) {
-      stepEl.textContent = txt || '';
-    }
     function resetForm() {
       fileInput.value = '';
       btn.disabled = false;
       cancelBtn.style.display = 'none';
       setProgress('');
-      setStep('');
     }
 
     function stripHtml(html) {
@@ -386,7 +377,6 @@ HTML = """
       btn.disabled = true;
       cancelBtn.style.display = 'block';
       setProgress('讀取檔案並偵測語言…');
-      setStep('讀取 epub 檔案…');
 
       cancelBtn.onclick = function() {
         controller.abort();
@@ -396,13 +386,11 @@ HTML = """
       function doClassicSubmit() {
         if (file.size > MAX_UPLOAD_BYTES) {
           setProgress(UPLOAD_LIMIT_MSG, true);
-          setStep('');
           cancelBtn.style.display = 'none';
           btn.disabled = false;
           return;
         }
         setProgress('');
-        setStep('');
         cancelBtn.style.display = 'none';
         form.submit();
       }
@@ -420,7 +408,7 @@ HTML = """
         if (!window.JSZip) return Promise.reject(new Error('JSZip 未載入'));
         return window.JSZip.loadAsync(ab);
       }).then(function(zip) {
-        setStep('解析 epub 結構與目錄…');
+          setProgress('解析 epub 結構與目錄…');
         var containerEntry = zip.file('META-INF/container.xml') || zip.file('container.xml');
         if (!containerEntry) throw new Error('找不到 container.xml');
         return containerEntry.async('string').then(function(str) {
@@ -446,7 +434,7 @@ HTML = """
           });
         });
       }).then(function(data) {
-        setStep('解析完成，偵測語言…');
+        setProgress('解析完成，偵測語言…');
         var firstText = data.ordered.length ? stripHtml(data.ordered[0].content) : '';
         if (!firstText) { doClassicSubmit(); return; }
         return fetch('/api/detect-lang', {
@@ -472,7 +460,6 @@ HTML = """
                 return prev.then(function() {
                   var partLabel = chunks.length > 1 ? ' 第 ' + (j + 1) + '/' + chunks.length + ' 段' : '';
                   setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…');
-                  setStep('正在轉換第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…');
                   var body = JSON.stringify({ html: chunkHtml, glossary: glossary });
                   return fetch(apiUrl, {
                     method: 'POST',
@@ -495,10 +482,9 @@ HTML = """
             });
           }, Promise.resolve()).then(function() {
             setProgress('組裝 epub 中…');
-            setStep('組裝 epub 中…');
             return data.zip.file(data.opfPath).async('string');
           }).then(function(opfStr) {
-            setStep('更新書名與目錄…');
+            setProgress('更新書名與目錄…');
             var title = '';
             try {
               var opfDoc = new DOMParser().parseFromString(opfStr, 'text/xml');
@@ -524,7 +510,7 @@ HTML = """
               return { opfStr: newOpfStr, opfPath: data.opfPath, safeName: safeName };
             });
           }).then(function(meta) {
-            setStep('打包 epub 檔案…');
+            setProgress('打包 epub 檔案…');
             var outZip = new window.JSZip();
             var pathMap = {};
             data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
@@ -543,8 +529,7 @@ HTML = """
             a.download = (meta.safeName || 'book') + '.epub';
             a.click();
             URL.revokeObjectURL(a.href);
-            setProgress('下載已開始。');
-            setStep('下載已開始');
+            setProgress('已經進行下載。');
             cancelBtn.style.display = 'none';
             btn.disabled = false;
           });
@@ -555,7 +540,6 @@ HTML = """
           return;
         }
         setProgress('錯誤：' + (err.message || err), true);
-        setStep('');
         cancelBtn.style.display = 'none';
         btn.disabled = false;
       });
