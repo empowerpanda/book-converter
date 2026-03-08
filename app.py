@@ -368,6 +368,7 @@ HTML = """
 
     var MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
     var UPLOAD_LIMIT_MSG = '檔案過大（超過 4 MB），目前部署環境無法接受單次上傳，請改用本機指令列：python main.py 你的書.epub';
+    var COPYRIGHT_PAGE_HTML = "<?xml version='1.0' encoding='utf-8'?>\\n<!DOCTYPE html>\\n<html xmlns=\\"http://www.w3.org/1999/xhtml\\" lang=\\"zh-TW\\" xml:lang=\\"zh-TW\\">\\n<head><meta charset=\\"utf-8\\"/><title>版權頁</title></head>\\n<body>\\n  <p>本書籍轉換工具，由「熊貓原點有限公司」維護。</p>\\n  <p>若有任何建議或靈感，歡迎聯繫 panda@nps.tw</p>\\n</body>\\n</html>";
 
     form.addEventListener('submit', function(e) {
       e.preventDefault();
@@ -508,7 +509,16 @@ HTML = """
                 newOpfStr = opfStr.replace(/(<dc:title[^>]*>)([^<]*)(<\\/dc:title>)/gi, '$1' + esc + '$3');
                 if (newOpfStr === opfStr) newOpfStr = opfStr.replace(/(<title[^>]*>)([^<]*)(<\\/title>)/gi, '$1' + esc + '$3');
               }
-              return { opfStr: newOpfStr, opfPath: data.opfPath, safeName: safeName };
+              var opfBase = data.opfPath.indexOf('/') >= 0 ? data.opfPath.slice(0, data.opfPath.lastIndexOf('/') + 1) : '';
+              var copyrightPath = null;
+              var opfWithCopyright = newOpfStr;
+              if (newOpfStr.indexOf('nps_copyright') === -1) {
+                copyrightPath = opfBase + 'copyright.xhtml';
+                opfWithCopyright = newOpfStr
+                  .replace(/<\\/manifest>/, '  <item id="nps_copyright" href="copyright.xhtml" media-type="application/xhtml+xml"\\/>\\n</manifest>')
+                  .replace(/(<spine[^>]*>)(\\s*)/, '$1$2  <itemref idref="nps_copyright"\\/>$2');
+              }
+              return { opfStr: opfWithCopyright, opfPath: data.opfPath, safeName: safeName, copyrightPath: copyrightPath };
             });
           }).then(function(meta) {
             setProgress('打包 epub 檔案…');
@@ -516,12 +526,18 @@ HTML = """
             var pathMap = {};
             data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
             pathMap[meta.opfPath] = meta.opfStr;
+            if (meta.copyrightPath) {
+              pathMap[meta.copyrightPath] = COPYRIGHT_PAGE_HTML;
+            }
             var names = Object.keys(data.zip.files);
             return Promise.all(names.map(function(path) {
               if (pathMap[path]) { outZip.file(path, pathMap[path]); return Promise.resolve(); }
               var entry = data.zip.files[path];
               return entry.async('uint8array').then(function(arr) { outZip.file(path, arr); });
-            })).then(function() { return outZip.generateAsync({ type: 'blob' }); }).then(function(blob) { return { blob: blob, meta: meta }; });
+            })).then(function() {
+              if (meta.copyrightPath) outZip.file(meta.copyrightPath, COPYRIGHT_PAGE_HTML);
+              return outZip.generateAsync({ type: 'blob' });
+            }).then(function(blob) { return { blob: blob, meta: meta }; });
           }).then(function(result) {
             var blob = result.blob;
             var meta = result.meta;
