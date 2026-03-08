@@ -93,14 +93,15 @@ HTML = """
   <title>書籍轉換工具</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Orbitron:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Nunito:wght@600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      font-family: "Noto Sans TC", "Nunito", "PingFang TC", sans-serif;
       min-height: 100vh;
-      background: linear-gradient(160deg, #0a0e17 0%, #0f1629 35%, #0d1322 100%);
-      color: #e2e8f0;
+      background: linear-gradient(135deg, #fef3c7 0%, #e0e7ff 25%, #d1fae5 50%, #fce7f3 75%, #cffafe 100%);
+      background-attachment: fixed;
+      color: #374151;
       padding: 2.5rem 1rem 4rem;
     }
     .wrap { max-width: 520px; margin: 0 auto; }
@@ -109,121 +110,142 @@ HTML = """
       margin-bottom: 2rem;
     }
     .hero h1 {
-      font-family: "Orbitron", sans-serif;
-      font-size: 1.75rem;
+      font-family: "Nunito", "Noto Sans TC", sans-serif;
+      font-size: 1.85rem;
       font-weight: 700;
-      letter-spacing: 0.08em;
-      background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 50%, #0891b2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #5b21b6;
+      text-shadow: 1px 2px 0 rgba(255,255,255,0.8);
     }
     .hero .sub {
       margin-top: 0.5rem;
       font-size: 0.95rem;
-      color: #94a3b8;
+      color: #6b7280;
       font-weight: 500;
     }
     .card {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(34, 211, 238, 0.2);
-      border-radius: 16px;
+      background: linear-gradient(145deg, #a7f3d0, #6ee7b7);
+      border: none;
+      border-radius: 32px;
       padding: 1.75rem;
       margin-bottom: 1.25rem;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+      box-shadow:
+        inset 2px 2px 4px rgba(255,255,255,0.7),
+        inset -1px -1px 2px rgba(0,0,0,0.06),
+        0 10px 30px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
+    .card:hover { transform: translateY(-2px); box-shadow: inset 2px 2px 4px rgba(255,255,255,0.7), 0 14px 36px rgba(0,0,0,0.1); }
     .card label {
       display: block;
       margin-bottom: 0.5rem;
-      font-weight: 600;
-      color: #cbd5e1;
-      font-size: 0.9rem;
+      font-weight: 700;
+      color: #065f46;
+      font-size: 0.95rem;
     }
     input[type="file"] {
       width: 100%;
       padding: 1rem;
-      border: 2px dashed rgba(34, 211, 238, 0.4);
-      border-radius: 12px;
-      background: rgba(15, 23, 42, 0.5);
-      color: #94a3b8;
+      border: none;
+      border-radius: 24px;
+      background: linear-gradient(145deg, #fef3c7, #fde68a);
+      color: #92400e;
       cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
+      font-weight: 600;
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.8), inset -1px -1px 2px rgba(0,0,0,0.06);
+      transition: transform 0.15s, box-shadow 0.15s;
     }
     input[type="file"]:hover {
-      border-color: #22d3ee;
-      background: rgba(34, 211, 238, 0.06);
+      transform: scale(1.01);
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.9), 0 4px 12px rgba(146,64,14,0.2);
     }
     button {
       width: 100%;
       margin-top: 1.25rem;
       padding: 1rem 1.5rem;
       font-size: 1rem;
-      font-weight: 600;
-      font-family: "Noto Sans TC", sans-serif;
-      color: #0f172a;
-      background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+      font-weight: 700;
+      font-family: "Noto Sans TC", "Nunito", sans-serif;
+      color: #fff;
+      background: linear-gradient(145deg, #f472b6, #ec4899);
       border: none;
-      border-radius: 12px;
+      border-radius: 24px;
       cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow:
+        inset 2px 2px 4px rgba(255,255,255,0.35),
+        0 6px 20px rgba(236,72,153,0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
     }
-    button:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(34, 211, 238, 0.35); }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.4), 0 8px 24px rgba(236,72,153,0.45);
+    }
     button:disabled {
-      background: #475569;
-      color: #94a3b8;
+      background: linear-gradient(145deg, #d1d5db, #9ca3af);
       cursor: not-allowed;
       transform: none;
-      box-shadow: none;
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.08);
     }
     .msg {
       margin-top: 1rem;
-      padding: 0.85rem 1rem;
-      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      border-radius: 20px;
       font-size: 0.9rem;
+      font-weight: 500;
+      border: none;
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.6), 0 2px 8px rgba(0,0,0,0.06);
     }
     .msg.success {
-      background: rgba(34, 197, 94, 0.15);
-      color: #4ade80;
-      border: 1px solid rgba(34, 197, 94, 0.3);
+      background: linear-gradient(145deg, #86efac, #4ade80);
+      color: #14532d;
     }
     .msg.error {
-      background: rgba(239, 68, 68, 0.15);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.3);
+      background: linear-gradient(145deg, #fca5a5, #f87171);
+      color: #7f1d1d;
     }
     .msg.info {
-      background: rgba(34, 211, 238, 0.08);
-      color: #a5f3fc;
-      border: 1px solid rgba(34, 211, 238, 0.2);
+      background: linear-gradient(145deg, #c4b5fd, #a78bfa);
+      color: #2e1065;
     }
     a.dl {
       display: inline-block;
       margin-top: 0.75rem;
-      padding: 0.65rem 1.25rem;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: #fff;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(145deg, #67e8f9, #22d3ee);
+      color: #0e7490;
       text-decoration: none;
-      border-radius: 10px;
-      font-weight: 600;
-      transition: transform 0.15s, box-shadow 0.2s;
+      border-radius: 20px;
+      font-weight: 700;
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5), 0 6px 16px rgba(34,211,238,0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
     }
     a.dl:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+      transform: translateY(-2px);
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.6), 0 8px 20px rgba(34,211,238,0.4);
     }
-    #progress { margin-top: 1rem; font-size: 0.9rem; color: #94a3b8; }
-    #progress.err { color: #f87171; }
+    #progress { margin-top: 1rem; font-size: 0.9rem; font-weight: 600; color: #065f46; }
+    #progress.err { color: #7f1d1d; }
+    .card.download {
+      background: linear-gradient(145deg, #93c5fd, #60a5fa);
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.6), 0 10px 30px rgba(96,165,250,0.2);
+    }
+    .card.download label { color: #1e3a8a; }
+    .card.error {
+      background: linear-gradient(145deg, #fda4af, #fb7185);
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5), 0 10px 30px rgba(251,113,133,0.2);
+    }
+    .card.error .msg { color: #7f1d1d; }
     .footer {
       margin-top: 3rem;
-      padding-top: 2rem;
-      border-top: 1px solid rgba(34, 211, 238, 0.15);
+      padding: 1.75rem 1.5rem;
+      border-radius: 28px;
+      background: linear-gradient(145deg, #e5e7eb, #d1d5db);
       text-align: center;
       font-size: 0.8rem;
-      color: #64748b;
-      line-height: 1.9;
+      color: #4b5563;
+      line-height: 1.95;
+      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.8), 0 8px 24px rgba(0,0,0,0.06);
     }
-    .footer a { color: #22d3ee; text-decoration: none; }
+    .footer a { color: #7c3aed; font-weight: 600; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -248,13 +270,13 @@ HTML = """
     </div>
 
     {% if download_url %}
-    <div class="card">
+    <div class="card download">
       <p class="msg success">轉換完成，請下載檔案。</p>
       <a class="dl" href="{{ download_url }}" download>下載 {{ download_name }}</a>
     </div>
     {% endif %}
     {% if error %}
-    <div class="card">
+    <div class="card error">
       <p class="msg error">{{ error }}</p>
     </div>
     {% endif %}
@@ -333,9 +355,8 @@ HTML = """
       }
 
       readAsArrayBuffer(file).then(function(ab) {
-        return window.JSZip ? Promise.resolve(window.JSZip) : Promise.reject(new Error('JSZip 未載入'));
-      }).then(function(JSZip) {
-        return JSZip.loadAsync(ab);
+        if (!window.JSZip) return Promise.reject(new Error('JSZip 未載入'));
+        return window.JSZip.loadAsync(ab);
       }).then(function(zip) {
         var containerEntry = zip.file('META-INF/container.xml') || zip.file('container.xml');
         if (!containerEntry) throw new Error('找不到 container.xml');
