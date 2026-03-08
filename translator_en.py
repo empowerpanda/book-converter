@@ -19,6 +19,34 @@ try:
 except ImportError:
     ts = None
 
+_argos_installed = False
+def _argos_translate(text: str) -> str:
+    """使用 Argos Translate 離線翻譯 en→zh，再轉臺灣繁體。"""
+    global _argos_installed
+    try:
+        import argostranslate.package
+        import argostranslate.translate
+    except ImportError:
+        raise RuntimeError("請安裝 Argos：pip install argostranslate，並執行 argospm update && argospm install translate-en_zh")
+    if not _argos_installed:
+        argostranslate.package.update_package_index()
+        pkgs = argostranslate.package.get_available_packages()
+        pkg = next((p for p in pkgs if p.from_code == "en" and p.to_code == "zh"), None)
+        if not pkg:
+            raise RuntimeError("找不到 en→zh 語言包，請執行：argospm update && argospm install translate-en_zh")
+        argostranslate.package.install_from_path(pkg.download())
+        _argos_installed = True
+    out = argostranslate.translate.translate(text.strip(), "en", "zh")
+    if not out:
+        return ""
+    # Argos 多為簡體，轉臺灣繁體
+    try:
+        from opencc import OpenCC
+        out = OpenCC("s2tw").convert(out)
+    except Exception:
+        pass
+    return out.strip()
+
 # 每段最長字數，避免單次請求過大
 MAX_CHUNK_CHARS = 3000
 # 請求間隔（秒），降低被限流風險
@@ -26,12 +54,14 @@ REQUEST_DELAY = 0.5
 
 
 def _translate_with_engine(text: str, engine: str = "google") -> str:
-    """呼叫翻譯引擎，目標語言為臺灣繁體。"""
-    if not ts:
-        raise RuntimeError("請安裝 translators：pip install translators")
+    """呼叫翻譯引擎，目標語言為臺灣繁體。engine 可為 google/deepl/...（需 translators）或 argos（離線，需 argostranslate）。"""
     text = text.strip()
     if not text:
         return ""
+    if engine == "argos":
+        return _argos_translate(text)
+    if not ts:
+        raise RuntimeError("請安裝 translators：pip install translators")
     try:
         out = ts.translate_text(
             query_text=text,

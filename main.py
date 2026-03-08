@@ -6,6 +6,7 @@
 輸出一律為 .epub。
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -62,8 +63,12 @@ def convert_simplified_epub(input_path: str, output_path: str) -> None:
     process_epub(input_path, output_path, convert_simplified_to_traditional)
 
 
-def convert_english_epub(input_path: str, output_path: str, engine: str = "google") -> None:
-    """英文 EPUB → 繁體中文（段落翻譯、術語一致）。"""
+def convert_english_epub(
+    input_path: str, output_path: str, engine: str | None = None
+) -> None:
+    """英文 EPUB → 繁體中文（段落翻譯、術語一致）。engine 可由環境變數 BOOK_TRANSLATION_ENGINE 指定（如 argos）。"""
+    if engine is None:
+        engine = os.environ.get("BOOK_TRANSLATION_ENGINE", "google")
     process_epub_english_to_traditional(input_path, output_path, engine=engine)
 
 

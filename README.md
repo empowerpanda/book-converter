@@ -70,11 +70,19 @@ python main.py /path/to/你的書.epub /path/to/輸出.epub
 - **EPUB**：`EbookLib`
 - **簡繁字＋用語**：`opencc-python-reimplemented` + 自訂 `terminology_zh.py`
 - **語言偵測**：`langdetect`
-- **英文翻譯**：`translators`（預設使用 Google，需網路）。若連線有問題可先設定：
-  ```bash
-  export translators_default_region=EN
-  ```
-  再執行 `python main.py ...`
+- **英文翻譯**（二選一或並存）：
+  - **預設：`translators`**（使用 Google 等線上引擎，需網路）。若連線有問題可先設定：
+    ```bash
+    export translators_default_region=EN
+    ```
+  - **開源離線：Argos Translate**（完全離線、無需 API、隱私較佳，品質依模型而異）：
+    ```bash
+    pip install argostranslate
+    argospm update && argospm install translate-en_zh
+    export BOOK_TRANSLATION_ENGINE=argos
+    ```
+    首次使用會下載語言包（約數百 MB）。若本專案使用 `engine="argos"`，會自動呼叫 Argos；未安裝時仍可只用 `translators`。
+- 再執行 `python main.py ...` 或網頁版即可。
 
 ## 自訂兩岸用語
 

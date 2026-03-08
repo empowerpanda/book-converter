@@ -7,6 +7,7 @@
   python convert_one.py /path/to/book.epub # 指定輸入，輸出到 output/
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -50,7 +51,8 @@ def _get_translated_title_for_filename(input_path: str, lang: str) -> str:
         return convert_simplified_to_traditional(title)
     if lang == "en":
         from translator_en import translate_english_to_traditional
-        out, _ = translate_english_to_traditional(title, glossary={}, engine="google")
+        engine = os.environ.get("BOOK_TRANSLATION_ENGINE", "google")
+        out, _ = translate_english_to_traditional(title, glossary={}, engine=engine)
         return out
     from converter_zh import convert_simplified_to_traditional
     return convert_simplified_to_traditional(title)

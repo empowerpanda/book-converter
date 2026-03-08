@@ -187,6 +187,7 @@ HTML = """
       background: #fef2f2;
       color: #991b1b;
     }
+    .msg code { font-size: 0.9em; background: rgba(0,0,0,0.06); padding: 0.15em 0.4em; border-radius: 4px; }
     .msg.info {
       background: #f3f4f6;
       color: #4b5563;
@@ -262,7 +263,8 @@ HTML = """
         英文→繁體中文（包含檢視術語一致）。<br>
         <br>
         簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<br>
-        整本書的語意、用詞會統一（英文：人名／術語；簡體：套用兩岸用語表）。
+        整本書的語意、用詞會統一（英文：人名／術語；簡體：套用兩岸用語表）。<br>
+        大書也可在網頁轉換（檔案在您電腦內逐章傳送，單章過大時會自動切段）。僅在無法偵測語言而改為整本上傳時，單檔需 4 MB 以內。
       </p>
     </div>
 
@@ -315,6 +317,36 @@ HTML = """
       div.innerHTML = html;
       return (div.textContent || div.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 15000);
     }
+    function splitHtmlChunks(html, maxBytes) {
+      if (!html || new Blob([html]).size <= maxBytes) return [html];
+      var chunks = [];
+      var pos = 0;
+      var len = html.length;
+      var maxChars = Math.floor(maxBytes / 2);
+      while (pos < len) {
+        var end = Math.min(pos + maxChars, len);
+        var slice = html.slice(pos, end);
+        if (end >= len) {
+          chunks.push(slice);
+          break;
+        }
+        var search = slice;
+        var lastP = search.lastIndexOf('</p>');
+        var lastDiv = search.lastIndexOf('</div>');
+        var lastSec = search.lastIndexOf('</section>');
+        var lastN = search.lastIndexOf('\\n');
+        var cut = Math.max(
+          lastP >= 0 ? lastP + 4 : -1,
+          lastDiv >= 0 ? lastDiv + 6 : -1,
+          lastSec >= 0 ? lastSec + 10 : -1,
+          lastN >= 0 ? lastN + 1 : -1
+        );
+        if (cut < 0) cut = slice.length;
+        chunks.push(html.slice(pos, pos + cut));
+        pos += cut;
+      }
+      return chunks;
+    }
 
     function parseOpf(xmlStr) {
       var parser = new DOMParser();
@@ -342,6 +374,9 @@ HTML = """
       return i >= 0 ? opfPath.slice(0, i + 1) : '';
     }
 
+    var MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+    var UPLOAD_LIMIT_MSG = '檔案過大（超過 4 MB），目前部署環境無法接受單次上傳，請改用本機指令列：python main.py 你的書.epub';
+
     form.addEventListener('submit', function(e) {
       e.preventDefault();
       var file = fileInput.files[0];
@@ -359,6 +394,13 @@ HTML = """
       };
 
       function doClassicSubmit() {
+        if (file.size > MAX_UPLOAD_BYTES) {
+          setProgress(UPLOAD_LIMIT_MSG, true);
+          setStep('');
+          cancelBtn.style.display = 'none';
+          btn.disabled = false;
+          return;
+        }
         setProgress('');
         setStep('');
         cancelBtn.style.display = 'none';
@@ -420,22 +462,35 @@ HTML = """
             return;
           }
           var total = data.ordered.length;
+          var maxChunkBytes = 2.5 * 1024 * 1024;
           var apiUrl = (lang === 'en') ? '/api/translate-chapter' : '/api/convert-chapter-zh';
           var glossary = {};
           return data.ordered.reduce(function(p, item, i) {
             return p.then(function() {
-              setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章…');
-              setStep('正在轉換第 ' + (i + 1) + ' / ' + total + ' 章…');
-              var body = JSON.stringify({ html: item.content, glossary: glossary });
-              return fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: body,
-                signal: signal
-              }).then(function(r) { return r.json(); }).then(function(apiRes) {
-                if (apiRes.error) throw new Error(apiRes.error);
-                item.content = (lang === 'en') ? apiRes.translated_html : apiRes.converted_html;
-                if (apiRes.glossary) glossary = apiRes.glossary;
+              var chunks = splitHtmlChunks(item.content, maxChunkBytes);
+              return chunks.reduce(function(prev, chunkHtml, j) {
+                return prev.then(function() {
+                  var partLabel = chunks.length > 1 ? ' 第 ' + (j + 1) + '/' + chunks.length + ' 段' : '';
+                  setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…');
+                  setStep('正在轉換第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…');
+                  var body = JSON.stringify({ html: chunkHtml, glossary: glossary });
+                  return fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body,
+                    signal: signal
+                  }).then(function(r) { return r.json(); }).then(function(apiRes) {
+                    if (apiRes.error) throw new Error(apiRes.error);
+                    if (!item.parts) item.parts = [];
+                    item.parts.push((lang === 'en') ? apiRes.translated_html : apiRes.converted_html);
+                    if (apiRes.glossary) glossary = apiRes.glossary;
+                  });
+                });
+              }, Promise.resolve()).then(function() {
+                if (item.parts) {
+                  item.content = item.parts.join('');
+                  delete item.parts;
+                }
               });
             });
           }, Promise.resolve()).then(function() {
@@ -578,7 +633,8 @@ def api_convert_text():
         sys.path.insert(0, str(ROOT))
         if lang == "en":
             from translator_en import translate_english_to_traditional
-            out, _ = translate_english_to_traditional(text, glossary={}, engine="google")
+            engine = os.environ.get("BOOK_TRANSLATION_ENGINE", "google")
+            out, _ = translate_english_to_traditional(text, glossary={}, engine=engine)
         else:
             from converter_zh import convert_simplified_to_traditional
             out = convert_simplified_to_traditional(text)
@@ -626,7 +682,8 @@ def api_translate_chapter():
         text_to_convert = "\n".join(ln for ln in lines if ln.strip())
         if not text_to_convert.strip():
             return jsonify({"translated_html": html, "glossary": glossary})
-        new_text, glossary = translate_english_to_traditional(text_to_convert, glossary=glossary, engine="google")
+        engine = os.environ.get("BOOK_TRANSLATION_ENGINE", "google")
+        new_text, glossary = translate_english_to_traditional(text_to_convert, glossary=glossary, engine=engine)
         raw_paras = [p.strip() for p in re.split(r"\n+", new_text) if p.strip()]
         new_paras = [None] * len(lines)
         j = 0
