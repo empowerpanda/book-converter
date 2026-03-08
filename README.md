@@ -90,10 +90,8 @@ python main.py /path/to/你的書.epub /path/to/輸出.epub
 
 ## 部署到 GitHub 與線上網頁
 
-要把專案放到 **GitHub**，或讓「網頁上傳→轉換→下載」在網路上跑，請看 **[DEPLOY.md](DEPLOY.md)**，內含：
-
-- 如何建立 GitHub 倉庫並推送程式碼
-- 如何用 **Render.com** 免費部署網頁版（取得公開網址）
+- **[DEPLOY.md](DEPLOY.md)**：把專案放到 GitHub、用 **Render** 部署網頁版
+- **[DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)**：用 **Vercel** 部署網頁版（從 GitHub 匯入即可）
 
 ## 授權
 

@@ -13,27 +13,21 @@
 3. 選 **Public**，不要勾選 "Add a README"（專案裡已有）
 4. 按 **Create repository**
 
-### 2. 在本機初始化並推上去
+### 2. 在本機推上 GitHub
 
-在終端機進入專案目錄後執行：
+專案已初始化 Git 並完成第一次 commit。你只要**連到自己的 GitHub 倉庫並推送**：
 
 ```bash
 cd /Users/pandah./Desktop/書籍轉換工具
 
-# 初始化 Git
-git init
-
-# 加入所有檔案（.gitignore 會排除 .venv、上傳檔等）
-git add .
-git commit -m "Initial commit: 書籍轉換工具（簡體/英文→繁中 epub、網頁版）"
-
 # 連到你的 GitHub 倉庫（請把 YOUR_USERNAME 和 REPO_NAME 改成你的）
 git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
 
-# 推上 GitHub（主分支名稱依你倉庫設定，常見為 main）
-git branch -M main
+# 推上 GitHub（主分支為 main）
 git push -u origin main
 ```
+
+若你還沒建立倉庫，請先到 GitHub 建立一個 **空的** 新 repo（不要勾選 README），再執行上面兩行（把 `YOUR_USERNAME/REPO_NAME` 換成該 repo 網址）。
 
 之後若要更新：
 

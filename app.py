@@ -9,16 +9,35 @@ import re
 import uuid
 from pathlib import Path
 
-from flask import Flask, request, send_file, render_template_string, redirect, url_for
+from flask import Flask, request, send_file, render_template_string, redirect, url_for, jsonify
 
 ROOT = Path(__file__).resolve().parent
-UPLOAD_DIR = ROOT / "upload"
-OUTPUT_DIR = ROOT / "output"
-UPLOAD_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
+# Vercel 僅能寫入 /tmp；若本機 mkdir 失敗也 fallback 到 /tmp
+if os.environ.get("VERCEL"):
+    _base = Path("/tmp/book_converter")
+    UPLOAD_DIR = _base / "upload"
+    OUTPUT_DIR = _base / "output"
+else:
+    UPLOAD_DIR = ROOT / "upload"
+    OUTPUT_DIR = ROOT / "output"
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    _base = Path("/tmp/book_converter")
+    UPLOAD_DIR = _base / "upload"
+    OUTPUT_DIR = _base / "output"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+
+
+@app.route("/api/health")
+def api_health():
+    """健康檢查：不載入轉換相關模組，用於確認 Vercel 是否正常啟動。"""
+    return jsonify({"ok": True, "vercel": bool(os.environ.get("VERCEL"))})
 
 
 def safe_filename(name: str) -> str:
@@ -123,20 +142,24 @@ HTML = """
       font-weight: 500;
     }
     a.dl:hover { background: #15803d; }
+    #progress { margin-top: 1rem; font-size: 0.9rem; color: #555; }
+    #progress.err { color: #991b1b; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
   <h1>書籍轉換工具</h1>
   <p class="sub">上傳 .epub（簡體或英文），自動轉成臺灣繁體 .epub 並可下載。</p>
 
   <div class="card">
-    <form method="post" action="/convert" enctype="multipart/form-data">
+    <form id="form" method="post" action="/convert" enctype="multipart/form-data">
       <label for="file">選擇 .epub 檔案</label>
       <input type="file" name="file" id="file" accept=".epub" required>
       <button type="submit" id="btn">開始轉換</button>
+      <p id="progress"></p>
     </form>
     <p class="msg info" style="margin-top:1rem;">
-      支援：簡體→臺灣繁體（含用語轉換）；英文→繁體中文（整書術語一致）。轉換時間依書本長度而定，請稍候。
+      支援：簡體→臺灣繁體（含用語轉換）；英文→繁體中文（整書術語一致）。簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<strong>整本書的語意、用詞會統一</strong>（英文：人名／術語 glossary 跨章傳遞；簡體：兩岸用語表整書統一套用）。
     </p>
   </div>
 
@@ -153,25 +176,176 @@ HTML = """
   {% endif %}
 
   <script>
-    document.querySelector('form').addEventListener('submit', function() {
-      var btn = document.getElementById('btn');
+  (function() {
+    var form = document.getElementById('form');
+    var fileInput = document.getElementById('file');
+    var btn = document.getElementById('btn');
+    var progress = document.getElementById('progress');
+
+    function setProgress(txt, isErr) {
+      progress.textContent = txt;
+      progress.className = isErr ? 'msg err' : '';
+    }
+
+    function stripHtml(html) {
+      var div = document.createElement('div');
+      div.innerHTML = html;
+      return (div.textContent || div.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 15000);
+    }
+
+    function parseOpf(xmlStr) {
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(xmlStr, 'text/xml');
+      var manifest = {};
+      var items = doc.getElementsByTagName ? doc.getElementsByTagName('item') : doc.querySelectorAll('item');
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var id = item.getAttribute('id');
+        var href = item.getAttribute('href') || '';
+        var mt = (item.getAttribute('media-type') || '').toLowerCase();
+        if (id && (mt.indexOf('html') >= 0 || /\.(x?html?)$/i.test(href))) manifest[id] = href;
+      }
+      var spine = [];
+      var refs = doc.getElementsByTagName ? doc.getElementsByTagName('itemref') : doc.querySelectorAll('itemref');
+      for (var j = 0; j < refs.length; j++) {
+        var id = refs[j].getAttribute('idref');
+        if (id && manifest[id]) spine.push({ id: id, href: manifest[id] });
+      }
+      return { spine: spine, manifest: manifest };
+    }
+
+    function getBasePath(opfPath) {
+      var i = opfPath.lastIndexOf('/');
+      return i >= 0 ? opfPath.slice(0, i + 1) : '';
+    }
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var file = fileInput.files[0];
+      if (!file) return;
       btn.disabled = true;
-      btn.textContent = '轉換中，請稍候…';
+      setProgress('讀取檔案並偵測語言…');
+
+      function doClassicSubmit() {
+        setProgress('');
+        form.submit();
+      }
+
+      function readAsArrayBuffer(f) {
+        return new Promise(function(resolve, reject) {
+          var r = new FileReader();
+          r.onload = function() { resolve(r.result); };
+          r.onerror = reject;
+          r.readAsArrayBuffer(f);
+        });
+      }
+
+      readAsArrayBuffer(file).then(function(ab) {
+        return window.JSZip ? Promise.resolve(window.JSZip) : Promise.reject(new Error('JSZip 未載入'));
+      }).then(function(JSZip) {
+        return JSZip.loadAsync(ab);
+      }).then(function(zip) {
+        var containerEntry = zip.file('META-INF/container.xml') || zip.file('container.xml');
+        if (!containerEntry) throw new Error('找不到 container.xml');
+        return containerEntry.async('string').then(function(str) {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(str, 'text/xml');
+          var rootfile = doc.querySelector('rootfile');
+          var opfPath = rootfile ? rootfile.getAttribute('full-path') : '';
+          if (!opfPath) throw new Error('找不到 content.opf 路徑');
+          var base = getBasePath(opfPath);
+          return zip.file(opfPath).async('string').then(function(opfStr) {
+            var opf = parseOpf(opfStr);
+            var ordered = [];
+            return Promise.all(opf.spine.map(function(item) {
+              var fullPath = base + item.href.replace(/^[^/]*\\.\\.\\//, '');
+              var f = zip.file(fullPath) || zip.file(item.href) || zip.file(base + item.href);
+              if (!f) return Promise.resolve(null);
+              return f.async('string').then(function(html) {
+                ordered.push({ path: f.name, href: item.href, content: html });
+              });
+            })).then(function() {
+              return { zip: zip, ordered: ordered.filter(Boolean), base: base };
+            });
+          });
+        });
+      }).then(function(data) {
+        var firstText = data.ordered.length ? stripHtml(data.ordered[0].content) : '';
+        if (!firstText) { doClassicSubmit(); return; }
+        return fetch('/api/detect-lang', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: firstText })
+        }).then(function(r) { return r.json(); }).then(function(res) {
+          if (res.error) throw new Error(res.error);
+          var lang = res.language;
+          if (lang !== 'en' && lang !== 'zh-cn' && lang !== 'zh') {
+            doClassicSubmit();
+            return;
+          }
+          var total = data.ordered.length;
+          var apiUrl = (lang === 'en') ? '/api/translate-chapter' : '/api/convert-chapter-zh';
+          var glossary = {};
+          return data.ordered.reduce(function(p, item, i) {
+            return p.then(function() {
+              setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章…');
+              var body = JSON.stringify({ html: item.content, glossary: glossary });
+              return fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: body
+              }).then(function(r) { return r.json(); }).then(function(apiRes) {
+                if (apiRes.error) throw new Error(apiRes.error);
+                item.content = (lang === 'en') ? apiRes.translated_html : apiRes.converted_html;
+                if (apiRes.glossary) glossary = apiRes.glossary;
+              });
+            });
+          }, Promise.resolve()).then(function() {
+            setProgress('組裝 epub 中…');
+            var outZip = new window.JSZip();
+            var pathMap = {};
+            data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
+            var names = Object.keys(data.zip.files);
+            return Promise.all(names.map(function(path) {
+              if (pathMap[path]) { outZip.file(path, pathMap[path]); return Promise.resolve(); }
+              var entry = data.zip.files[path];
+              return entry.async('uint8array').then(function(arr) { outZip.file(path, arr); });
+            })).then(function() {
+              return outZip.generateAsync({ type: 'blob' });
+            });
+          }).then(function(blob) {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (file.name.replace(/\\.epub$/i, '') + '_tw.epub');
+            a.click();
+            URL.revokeObjectURL(a.href);
+            setProgress('下載已開始。');
+            btn.disabled = false;
+          });
+        });
+      }).catch(function(err) {
+        setProgress('錯誤：' + (err.message || err), true);
+        btn.disabled = false;
+      });
     });
+  })();
   </script>
 </body>
 </html>
-"""
 
 
 @app.route("/")
 def index():
-    return render_template_string(
-        HTML,
-        download_url=None,
-        download_name=None,
-        error=request.args.get("error"),
-    )
+    try:
+        return render_template_string(
+            HTML,
+            download_url=None,
+            download_name=None,
+            error=request.args.get("error"),
+        )
+    except Exception as e:
+        app.logger.exception("index failed")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/convert", methods=["POST"])
@@ -202,6 +376,79 @@ def convert():
                 input_path.unlink()
             except Exception:
                 pass
+
+
+# ---------- 分章轉換 API（給英文書在 Vercel 60s 限制下用）----------
+
+@app.route("/api/detect-lang", methods=["POST"])
+def api_detect_lang():
+    """POST JSON { \"text\": \"...\" }，回傳 { \"language\": \"en\" | \"zh-cn\" | \"zh\" }。"""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        text = (data.get("text") or "").strip()[:20000]
+        if not text:
+            return jsonify({"error": "missing text"}), 400
+        sys.path.insert(0, str(ROOT))
+        from main import detect_language_from_text
+        lang = detect_language_from_text(text)
+        return jsonify({"language": lang})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/translate-chapter", methods=["POST"])
+def api_translate_chapter():
+    """POST JSON { \"html\": \"...\", \"glossary\": {} }。英文→繁中，整書人名／術語一致由 glossary 在章節間傳遞並更新後回傳。"""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        html = data.get("html") or ""
+        glossary = data.get("glossary") or {}
+        if not isinstance(glossary, dict):
+            glossary = {}
+        if not html.strip():
+            return jsonify({"translated_html": html, "glossary": glossary})
+
+        sys.path.insert(0, str(ROOT))
+        from epub_io import get_text_from_html, set_text_in_html
+        from translator_en import translate_english_to_traditional
+
+        text = get_text_from_html(html)
+        if not text.strip():
+            return jsonify({"translated_html": html, "glossary": glossary})
+        new_text, glossary = translate_english_to_traditional(text, glossary=glossary, engine="google")
+        new_html = set_text_in_html(html, new_text)
+        return jsonify({"translated_html": new_html, "glossary": glossary})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/convert-chapter-zh", methods=["POST"])
+def api_convert_chapter_zh():
+    """POST JSON { \"html\": \"...\", \"glossary\": {} }。簡體→臺灣繁體＋兩岸用語；glossary 為整書統一用詞（簡→繁）可選覆寫，會原樣回傳供下一章使用。"""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        html = data.get("html") or ""
+        glossary = data.get("glossary") or {}
+        if not isinstance(glossary, dict):
+            glossary = {}
+        if not html.strip():
+            return jsonify({"converted_html": html, "glossary": glossary})
+
+        sys.path.insert(0, str(ROOT))
+        from epub_io import get_text_from_html, set_text_in_html
+        from converter_zh import convert_simplified_to_traditional
+
+        text = get_text_from_html(html)
+        if not text.strip():
+            return jsonify({"converted_html": html, "glossary": glossary})
+        new_text = convert_simplified_to_traditional(text)
+        # 整書用詞統一：套用本書級 glossary（例如書內專有名詞鎖定），依詞長由長到短
+        for k in sorted(glossary.keys(), key=lambda x: -len(x)):
+            new_text = new_text.replace(k, glossary[k])
+        new_html = set_text_in_html(html, new_text)
+        return jsonify({"converted_html": new_html, "glossary": glossary})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/download/<filename>")

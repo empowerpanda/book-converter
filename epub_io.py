@@ -3,12 +3,12 @@
 EPUB 讀取與寫出：萃取 HTML 內文、套用轉換後寫回 .epub
 """
 
-import html
+import html as _html
 import re
 from pathlib import Path
 from typing import Callable, List, Tuple
 
-from ebooklib import epub
+from ebooklib import epub, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
 
 
@@ -43,7 +43,7 @@ def set_text_in_html(html: str, new_text: str) -> str:
     new_paras = [p.strip() for p in new_text.split("\n") if p.strip()]
     if len(blocks_old) != len(new_paras):
         # 段落數不同：整段 body 用單一 div 包住新內容
-        new_html = "<div>" + "".join(f"<p>{html.escape(p)}</p>" for p in new_paras) + "</div>"
+        new_html = "<div>" + "".join(f"<p>{_html.escape(p)}</p>" for p in new_paras) + "</div>"
         body.clear()
         body.append(BeautifulSoup(new_html, "lxml"))
         return str(soup)
@@ -70,7 +70,7 @@ def process_epub(
     book = epub.read_epub(str(input_path))
 
     for item in book.get_items():
-        if item.get_type() != epub.ITEM_DOCUMENT:
+        if item.get_type() != ITEM_DOCUMENT:
             continue
         try:
             html = item.get_content().decode("utf-8", errors="replace")
@@ -98,7 +98,7 @@ def get_epub_text_sample(input_path: str, max_chars: int = 50000) -> str:
     chunks: List[str] = []
     total = 0
     for item in book.get_items():
-        if item.get_type() != epub.ITEM_DOCUMENT:
+        if item.get_type() != ITEM_DOCUMENT:
             continue
         try:
             html = item.get_content().decode("utf-8", errors="replace")
@@ -121,7 +121,7 @@ def get_epub_chapters(input_path: str) -> List[Tuple[str, str]]:
     book = epub.read_epub(str(input_path))
     out: List[Tuple[str, str]] = []
     for item in book.get_items():
-        if item.get_type() != epub.ITEM_DOCUMENT:
+        if item.get_type() != ITEM_DOCUMENT:
             continue
         try:
             html = item.get_content().decode("utf-8", errors="replace")
@@ -150,7 +150,7 @@ def process_epub_english_to_traditional(
     glossary: dict = {}
 
     for item in book.get_items():
-        if item.get_type() != epub.ITEM_DOCUMENT:
+        if item.get_type() != ITEM_DOCUMENT:
             continue
         try:
             html = item.get_content().decode("utf-8", errors="replace")

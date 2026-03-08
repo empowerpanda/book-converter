@@ -23,12 +23,11 @@ from epub_io import (
 )
 
 
-def detect_language_from_epub(input_path: str) -> str:
+def detect_language_from_text(sample: str, max_chars: int = 15000) -> str:
     """
-    從 EPUB 取樣內文，偵測主要語言。
-    回傳 'zh-cn'（簡體）、'zh'（傾向繁體或無法細分）、'en' 等。
+    從一段文字偵測主要語言。回傳 'zh-cn'、'zh'、'en' 等。
     """
-    sample = get_epub_text_sample(input_path, max_chars=15000)
+    sample = (sample or "")[:max_chars]
     if not sample.strip():
         return "unknown"
     if detect is None:
@@ -48,6 +47,12 @@ def detect_language_from_epub(input_path: str) -> str:
     if lang == "en":
         return "en"
     return lang
+
+
+def detect_language_from_epub(input_path: str) -> str:
+    """從 EPUB 取樣內文偵測主要語言。"""
+    sample = get_epub_text_sample(input_path, max_chars=15000)
+    return detect_language_from_text(sample)
 
 
 def convert_simplified_epub(input_path: str, output_path: str) -> None:
