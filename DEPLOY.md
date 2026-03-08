@@ -18,7 +18,7 @@
 專案已初始化 Git 並完成第一次 commit。你只要**連到自己的 GitHub 倉庫並推送**：
 
 ```bash
-cd /Users/pandah./Desktop/書籍轉換工具
+cd /Users/pandah./Desktop/好用工具開發
 
 # 連到你的 GitHub 倉庫（請把 YOUR_USERNAME 和 REPO_NAME 改成你的）
 git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git

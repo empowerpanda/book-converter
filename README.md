@@ -20,7 +20,7 @@
 ## 安裝
 
 ```bash
-cd 書籍轉換工具
+cd 好用工具開發
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt

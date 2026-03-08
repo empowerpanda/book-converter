@@ -48,7 +48,7 @@
 # 安裝 Vercel CLI（若尚未安裝）
 npm i -g vercel
 
-cd /Users/pandah./Desktop/書籍轉換工具
+cd /Users/pandah./Desktop/好用工具開發
 
 # 登入並部署（會提示連結到現有專案或建立新專案）
 vercel
