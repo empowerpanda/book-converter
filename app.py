@@ -257,7 +257,8 @@ HTML = """
         <button type="button" id="cancelBtn" class="cancel-btn" style="display:none;">取消並重新進行</button>
     </form>
       <p class="msg info" style="margin-top:1rem;">
-        支援：簡體→臺灣繁體（含用語轉換）<br>
+        支援：<br>
+        簡體→臺灣繁體（含用語轉換）<br>
         英文→繁體中文（包含檢視術語一致）<br>
         <br>
         本翻譯皆設定整本書的語意、用詞（尤其人名）會進行統一
@@ -277,7 +278,7 @@ HTML = """
     {% endif %}
 
     <footer class="footer">
-      <p>本工具僅限非商業行為自用，同時請自行留意版權相關法規。</p>
+      <p>本工具僅限非商業使用，同時請自行留意版權相關法規。</p>
       <p>本專案由熊貓原點有限公司維護</p>
       <p>若有任何本工具之建議，歡迎來信：<a href="mailto:panda@nps.tw">panda@nps.tw</a></p>
       <p>本司代理各領域軟體、硬體採購，詳情請洽詢：<a href="https://nps.tw" target="_blank" rel="noopener">nps.tw</a></p>
