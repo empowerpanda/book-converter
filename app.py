@@ -265,7 +265,7 @@ HTML = """
                 ordered.push({ path: f.name, href: item.href, content: html });
               });
             })).then(function() {
-              return { zip: zip, ordered: ordered.filter(Boolean), base: base };
+              return { zip: zip, ordered: ordered.filter(Boolean), base: base, opfPath: opfPath };
             });
           });
         });
@@ -302,21 +302,47 @@ HTML = """
             });
           }, Promise.resolve()).then(function() {
             setProgress('組裝 epub 中…');
+            return data.zip.file(data.opfPath).async('string');
+          }).then(function(opfStr) {
+            var title = '';
+            try {
+              var opfDoc = new DOMParser().parseFromString(opfStr, 'text/xml');
+              var t = opfDoc.getElementsByTagName('title')[0] || opfDoc.querySelector('*[local-name()="title"]');
+              if (t) title = (t.textContent || '').trim();
+            } catch(e) {}
+            if (!title) title = file.name.replace(/\\.epub$/i, '');
+            return fetch('/api/convert-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: title, lang: lang })
+            }).then(function(r) { return r.json(); }).then(function(res) {
+              var convertedTitle = (res.converted && res.converted.trim()) ? res.converted.trim() : title;
+              var safeName = convertedTitle.replace(/[<>:"/\\\\|?*]/g, '').replace(/\\s+/g, ' ').trim().slice(0, 100) || 'book';
+              var newOpfStr = opfStr;
+              if (convertedTitle) {
+                var esc = convertedTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                newOpfStr = opfStr.replace(/(<dc:title[^>]*>)([^<]*)(<\\/dc:title>)/gi, '$1' + esc + '$3');
+                if (newOpfStr === opfStr) newOpfStr = opfStr.replace(/(<title[^>]*>)([^<]*)(<\\/title>)/gi, '$1' + esc + '$3');
+              }
+              return { opfStr: newOpfStr, opfPath: data.opfPath, safeName: safeName };
+            });
+          }).then(function(meta) {
             var outZip = new window.JSZip();
             var pathMap = {};
             data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
+            pathMap[meta.opfPath] = meta.opfStr;
             var names = Object.keys(data.zip.files);
             return Promise.all(names.map(function(path) {
               if (pathMap[path]) { outZip.file(path, pathMap[path]); return Promise.resolve(); }
               var entry = data.zip.files[path];
               return entry.async('uint8array').then(function(arr) { outZip.file(path, arr); });
-            })).then(function() {
-              return outZip.generateAsync({ type: 'blob' });
-            });
-          }).then(function(blob) {
+            })).then(function() { return outZip.generateAsync({ type: 'blob' }); }).then(function(blob) { return { blob: blob, meta: meta }; });
+          }).then(function(result) {
+            var blob = result.blob;
+            var meta = result.meta;
             var a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = (file.name.replace(/\\.epub$/i, '') + '_tw.epub');
+            a.download = (meta.safeName || 'book') + '_tw.epub';
             a.click();
             URL.revokeObjectURL(a.href);
             setProgress('下載已開始。');
@@ -379,6 +405,27 @@ def convert():
 
 
 # ---------- 分章轉換 API（給英文書在 Vercel 60s 限制下用）----------
+
+@app.route("/api/convert-text", methods=["POST"])
+def api_convert_text():
+    """POST JSON { \"text\": \"...\", \"lang\": \"zh\" | \"en\" }，回傳轉換／翻譯後的書名或短句（用於檔名、章節名、metadata）。"""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        text = (data.get("text") or "").strip()[:500]
+        lang = (data.get("lang") or "zh").strip().lower()
+        if not text:
+            return jsonify({"converted": ""})
+        sys.path.insert(0, str(ROOT))
+        if lang == "en":
+            from translator_en import translate_english_to_traditional
+            out, _ = translate_english_to_traditional(text, glossary={}, engine="google")
+        else:
+            from converter_zh import convert_simplified_to_traditional
+            out = convert_simplified_to_traditional(text)
+        return jsonify({"converted": (out or "").strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "converted": ""}), 500
+
 
 @app.route("/api/detect-lang", methods=["POST"])
 def api_detect_lang():

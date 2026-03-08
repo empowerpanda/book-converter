@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Callable, List, Tuple
 
 from ebooklib import epub, ITEM_DOCUMENT
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 
 
 def get_text_from_html(html: str) -> str:
-    """從 HTML 字串萃取出純文字（保留段落結構）。"""
+    """從 HTML 字串萃取出純文字（保留段落結構，一個區塊一行）。"""
     if not html or not html.strip():
         return ""
     soup = BeautifulSoup(html, "lxml")
@@ -23,10 +23,30 @@ def get_text_from_html(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+def _split_by_ratio(text: str, ratios: List[float]) -> List[str]:
+    """依比例把 text 切成 len(ratios) 段，最後一段取到結尾避免遺漏。"""
+    if not ratios or not text:
+        return [text] if text else []
+    total = sum(ratios)
+    if total <= 0:
+        return [text]
+    out: List[str] = []
+    start = 0
+    for i, r in enumerate(ratios):
+        if i == len(ratios) - 1:
+            out.append(text[start:])
+            break
+        end = start + max(0, int(round(len(text) * r / total)))
+        out.append(text[start:end])
+        start = end
+    return out
+
+
 def set_text_in_html(html: str, new_text: str) -> str:
     """
-    將新文字填回 HTML。策略：依序把每個「文字區塊」替換為對應的新段落。
-    若段落數不一致，則整段 body 替換為單一 <p>。
+    將新文字填回 HTML：
+    - 只替換「文字節點」，保留標籤與屬性（粗體、置中、圖片等）。
+    - 段落數與原文對齊，避免過度換行（多出的合併、不足的用最後一段補）。
     """
     if not html or not new_text:
         return html
@@ -34,26 +54,53 @@ def set_text_in_html(html: str, new_text: str) -> str:
     body = soup.find("body")
     if not body:
         return html
-    # 取得所有葉節點文字區塊（依序）
+
+    block_tags = body.find_all(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th"])
     blocks_old: List[str] = []
-    for tag in body.find_all(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th"]):
+    for tag in block_tags:
         t = tag.get_text(strip=True)
         if t:
             blocks_old.append(t)
-    new_paras = [p.strip() for p in new_text.split("\n") if p.strip()]
-    if len(blocks_old) != len(new_paras):
-        # 段落數不同：整段 body 用單一 div 包住新內容
-        new_html = "<div>" + "".join(f"<p>{_html.escape(p)}</p>" for p in new_paras) + "</div>"
-        body.clear()
-        body.append(BeautifulSoup(new_html, "lxml"))
-        return str(soup)
-    # 一一替換
+
+    # 依單一換行切，再合併多餘換行成一段，使段落數與原文一致
+    raw_paras = [p.strip() for p in re.split(r"\n+", new_text) if p.strip()]
+    n_blocks = len(blocks_old)
+    if n_blocks == 0 or not raw_paras:
+        return html
+    if len(raw_paras) > n_blocks:
+        # 多出的段落合併到最後一段（不強制加空格，避免中英混排多空格）
+        merged = raw_paras[: n_blocks - 1]
+        merged.append("".join(raw_paras[n_blocks - 1 :]))
+        new_paras = merged
+    elif len(raw_paras) < n_blocks:
+        new_paras = raw_paras + [""] * (n_blocks - len(raw_paras))
+    else:
+        new_paras = raw_paras
+
     idx = 0
-    for tag in body.find_all(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th"]):
+    for tag in block_tags:
         t = tag.get_text(strip=True)
-        if t and idx < len(new_paras):
-            tag.string = new_paras[idx]
+        if not t or idx >= len(new_paras):
+            if t:
+                idx += 1
+            continue
+        new_para = new_paras[idx]
+        # 只替換文字節點，保留 <strong>/<em>/<img> 等
+        text_nodes = [n for n in tag.descendants if isinstance(n, NavigableString) and str(n).strip()]
+        if not text_nodes:
             idx += 1
+            continue
+        if len(text_nodes) == 1:
+            text_nodes[0].replace_with(new_para)
+        else:
+            lengths = [len(str(n).strip()) for n in text_nodes]
+            total_len = sum(lengths)
+            if total_len > 0:
+                ratios = [float(l) for l in lengths]
+                segments = _split_by_ratio(new_para, ratios)
+                for node, seg in zip(text_nodes, segments):
+                    node.replace_with(seg)
+        idx += 1
     return str(soup)
 
 
@@ -86,6 +133,15 @@ def process_epub(
         new_html = set_text_in_html(html, new_text)
         item.set_content(new_html.encode("utf-8"))
 
+    # 書名 metadata 一併轉換
+    try:
+        title_list = book.get_metadata("DC", "title")
+        if title_list and title_list[0]:
+            old_title = title_list[0][0]
+            if isinstance(old_title, str) and old_title.strip():
+                book.set_metadata("DC", "title", text_transform(old_title))
+    except Exception:
+        pass
     epub.write_epub(str(output_path), book, {})
 
 
@@ -166,4 +222,14 @@ def process_epub_english_to_traditional(
         new_html = set_text_in_html(html, new_text)
         item.set_content(new_html.encode("utf-8"))
 
+    # 書名 metadata 一併翻譯
+    try:
+        title_list = book.get_metadata("DC", "title")
+        if title_list and title_list[0]:
+            old_title = title_list[0][0]
+            if isinstance(old_title, str) and old_title.strip():
+                new_title, _ = translate_english_to_traditional(old_title, glossary=glossary, engine=engine)
+                book.set_metadata("DC", "title", new_title)
+    except Exception:
+        pass
     epub.write_epub(str(output_path), book, {})
