@@ -63,8 +63,8 @@ def safe_filename(name: str) -> str:
     return base + ".epub"
 
 
-def run_conversion(input_path: str) -> str:
-    """回傳輸出檔路徑。"""
+def run_conversion(input_path: str, output_path: str | None = None) -> str:
+    """回傳輸出檔路徑。若給 output_path 則直接寫入該路徑（避免檔名過長觸發 Errno 36）。"""
     sys_path = list(__import__("sys").path)
     if str(ROOT) not in sys_path:
         __import__("sys").path.insert(0, str(ROOT))
@@ -75,7 +75,10 @@ def run_conversion(input_path: str) -> str:
     )
 
     lang = detect_language_from_epub(input_path)
-    out_path = str(Path(input_path).parent / (Path(input_path).stem + "_tw.epub"))
+    if output_path:
+        out_path = output_path
+    else:
+        out_path = str(Path(input_path).parent / (Path(input_path).stem + "_tw.epub"))
 
     if lang == "en":
         convert_english_epub(input_path, out_path)
@@ -255,7 +258,11 @@ HTML = """
         <button type="button" id="cancelBtn" class="cancel-btn" style="display:none;">取消並重新進行</button>
     </form>
       <p class="msg info" style="margin-top:1rem;">
-        支援：簡體→臺灣繁體（含用語轉換）；英文→繁體中文（整書術語一致）。簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<strong>整本書的語意、用詞會統一</strong>（英文：人名／術語 glossary 跨章傳遞；簡體：兩岸用語表整書統一套用）。
+        支援：簡體→臺灣繁體（含用語轉換）<br>
+        英文→繁體中文（包含檢視術語一致）。<br>
+        <br>
+        簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<br>
+        整本書的語意、用詞會統一（英文：人名／術語；簡體：套用兩岸用語表）。
       </p>
     </div>
 
@@ -531,12 +538,10 @@ def convert():
     input_path = UPLOAD_DIR / f"{job_id}_{safe}"
     try:
         f.save(str(input_path))
-        out_path = run_conversion(str(input_path))
-        out_name = Path(out_path).name
-        final_name = f"{job_id}_{Path(out_path).name}"
+        # 使用短檔名避免檔案系統檔名過長（例如 255 bytes）導致 Errno 36
+        final_name = f"{job_id}_tw.epub"
         final_path = OUTPUT_DIR / final_name
-        import shutil
-        shutil.move(out_path, str(final_path))
+        run_conversion(str(input_path), str(final_path))
         original_stem = Path(f.filename).stem
         try:
             import ebooklib
