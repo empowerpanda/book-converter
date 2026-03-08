@@ -35,6 +35,9 @@
 5. **之後每次更新**  
    只要在本地 `git push` 到 GitHub，Vercel 會自動重新部署。
 
+6. **函數逾時（選用）**  
+   若轉換大書需要較長時間，可在 Vercel 專案 **Settings → Functions → Max Duration** 設為 60 秒（或更高）。專案已用 `vercel.json` 的 `framework: flask` 讓 Vercel 自動辨識根目錄的 `app.py`，勿在 `functions` 裡指定 `app.py`（會與 `api/` 規則衝突）。
+
 ---
 
 ## 三、本機用 Vercel CLI 部署（選用）
