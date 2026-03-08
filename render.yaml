@@ -1,0 +1,13 @@
+# Render.com 一鍵部署設定（網頁版：上傳 → 轉換 → 下載）
+# 使用方式：在 Render Dashboard 選 "New" → "Blueprint"，連到本 GitHub  repo 後會自動讀取此檔
+
+services:
+  - type: web
+    name: book-converter
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 1 -b 0.0.0.0:$PORT --timeout 600 app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+    # 免費方案 15 分鐘無流量會休眠，下次請求會冷啟動

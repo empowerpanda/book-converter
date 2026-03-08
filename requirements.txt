@@ -1,0 +1,20 @@
+# EPUB 讀寫
+EbookLib>=0.18
+
+# 簡體 → 繁體（含臺灣用字）
+opencc-python-reimplemented>=0.1.7
+
+# 語言偵測
+langdetect>=1.0.9
+
+# 英文 → 繁中翻譯（可選多引擎）
+translators>=4.0.0
+
+# HTML 解析（EPUB 內文）
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# 網頁上傳／下載（可選）
+flask>=3.0.0
+werkzeug>=3.0.0
+gunicorn>=21.0.0
