@@ -6,12 +6,17 @@
 
 import os
 import re
+import sys
+import traceback
 import uuid
 from pathlib import Path
 
 from flask import Flask, request, send_file, render_template_string, redirect, url_for, jsonify
 
 ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 # Vercel 僅能寫入 /tmp；若本機 mkdir 失敗也 fallback 到 /tmp
 if os.environ.get("VERCEL"):
     _base = Path("/tmp/book_converter")
@@ -27,11 +32,23 @@ except OSError:
     _base = Path("/tmp/book_converter")
     UPLOAD_DIR = _base / "upload"
     OUTPUT_DIR = _base / "output"
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+
+
+@app.errorhandler(Exception)
+def handle_error(e):
+    """回傳錯誤訊息與 traceback，方便在 Vercel 除錯。"""
+    tb = traceback.format_exc()
+    if os.environ.get("VERCEL"):
+        return jsonify({"error": str(e), "traceback": tb}), 500
+    raise e
 
 
 @app.route("/api/health")
