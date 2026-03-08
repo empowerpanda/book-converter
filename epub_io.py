@@ -22,6 +22,7 @@ COPYRIGHT_PAGE_HTML = """<?xml version='1.0' encoding='utf-8'?>
 <body>
   <p>本書籍轉換工具，由「熊貓原點有限公司」維護。</p>
   <p>若有任何建議或靈感，歡迎聯繫 panda@nps.tw</p>
+  <p>本司代理各領域軟體、硬體採購，詳情請洽詢：<a href="https://www.nps.tw">nps.tw</a></p>
 </body>
 </html>"""
 

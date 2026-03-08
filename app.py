@@ -368,7 +368,7 @@ HTML = """
 
     var MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
     var UPLOAD_LIMIT_MSG = '檔案過大（超過 4 MB），目前部署環境無法接受單次上傳，請改用本機指令列：python main.py 你的書.epub';
-    var COPYRIGHT_PAGE_HTML = "<?xml version='1.0' encoding='utf-8'?>\\n<!DOCTYPE html>\\n<html xmlns=\\"http://www.w3.org/1999/xhtml\\" lang=\\"zh-TW\\" xml:lang=\\"zh-TW\\">\\n<head><meta charset=\\"utf-8\\"/><title>版權頁</title></head>\\n<body>\\n  <p>本書籍轉換工具，由「熊貓原點有限公司」維護。</p>\\n  <p>若有任何建議或靈感，歡迎聯繫 panda@nps.tw</p>\\n</body>\\n</html>";
+    var COPYRIGHT_PAGE_HTML = "<?xml version='1.0' encoding='utf-8'?>\\n<!DOCTYPE html>\\n<html xmlns=\\"http://www.w3.org/1999/xhtml\\" lang=\\"zh-TW\\" xml:lang=\\"zh-TW\\">\\n<head><meta charset=\\"utf-8\\"/><title>版權頁</title></head>\\n<body>\\n  <p>本書籍轉換工具，由「熊貓原點有限公司」維護。</p>\\n  <p>若有任何建議或靈感，歡迎聯繫 panda@nps.tw</p>\\n  <p>本司代理各領域軟體、硬體採購，詳情請洽詢：<a href=\\"https://www.nps.tw\\">nps.tw</a></p>\\n</body>\\n</html>";
 
     form.addEventListener('submit', function(e) {
       e.preventDefault();
@@ -546,7 +546,7 @@ HTML = """
             a.download = (meta.safeName || 'book') + '.epub';
             a.click();
             URL.revokeObjectURL(a.href);
-            setProgress('已經進行下載。');
+            setProgress('書籍翻譯完成（瀏覽器將於 60 秒內自動下載）');
             cancelBtn.style.display = 'none';
             btn.disabled = false;
           });
