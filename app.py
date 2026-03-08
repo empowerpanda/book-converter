@@ -113,8 +113,7 @@ HTML = """
       font-family: "Nunito", "Noto Sans TC", sans-serif;
       font-size: 1.85rem;
       font-weight: 700;
-      color: #5b21b6;
-      text-shadow: 1px 2px 0 rgba(255,255,255,0.8);
+      color: #374151;
     }
     .hero .sub {
       margin-top: 0.5rem;
@@ -123,129 +122,118 @@ HTML = """
       font-weight: 500;
     }
     .card {
-      background: linear-gradient(145deg, #a7f3d0, #6ee7b7);
-      border: none;
-      border-radius: 32px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 20px;
       padding: 1.75rem;
       margin-bottom: 1.25rem;
-      box-shadow:
-        inset 2px 2px 4px rgba(255,255,255,0.7),
-        inset -1px -1px 2px rgba(0,0,0,0.06),
-        0 10px 30px rgba(0,0,0,0.08);
-      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     }
-    .card:hover { transform: translateY(-2px); box-shadow: inset 2px 2px 4px rgba(255,255,255,0.7), 0 14px 36px rgba(0,0,0,0.1); }
     .card label {
       display: block;
       margin-bottom: 0.5rem;
-      font-weight: 700;
-      color: #065f46;
+      font-weight: 600;
+      color: #374151;
       font-size: 0.95rem;
     }
     input[type="file"] {
       width: 100%;
       padding: 1rem;
-      border: none;
-      border-radius: 24px;
-      background: linear-gradient(145deg, #fef3c7, #fde68a);
-      color: #92400e;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f9fafb;
+      color: #4b5563;
       cursor: pointer;
-      font-weight: 600;
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.8), inset -1px -1px 2px rgba(0,0,0,0.06);
-      transition: transform 0.15s, box-shadow 0.15s;
+      font-weight: 500;
     }
     input[type="file"]:hover {
-      transform: scale(1.01);
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.9), 0 4px 12px rgba(146,64,14,0.2);
+      background: #f3f4f6;
+      border-color: #d1d5db;
     }
     button {
       width: 100%;
       margin-top: 1.25rem;
       padding: 1rem 1.5rem;
       font-size: 1rem;
-      font-weight: 700;
+      font-weight: 600;
       font-family: "Noto Sans TC", "Nunito", sans-serif;
       color: #fff;
-      background: linear-gradient(145deg, #f472b6, #ec4899);
+      background: #4b5563;
       border: none;
-      border-radius: 24px;
+      border-radius: 12px;
       cursor: pointer;
-      box-shadow:
-        inset 2px 2px 4px rgba(255,255,255,0.35),
-        0 6px 20px rgba(236,72,153,0.4);
-      transition: transform 0.15s, box-shadow 0.15s;
+      transition: background 0.2s;
     }
-    button:hover {
-      transform: translateY(-2px);
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.4), 0 8px 24px rgba(236,72,153,0.45);
-    }
+    button:hover { background: #374151; }
     button:disabled {
-      background: linear-gradient(145deg, #d1d5db, #9ca3af);
+      background: #9ca3af;
       cursor: not-allowed;
-      transform: none;
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.08);
     }
     .msg {
       margin-top: 1rem;
       padding: 0.9rem 1.1rem;
-      border-radius: 20px;
+      border-radius: 12px;
       font-size: 0.9rem;
       font-weight: 500;
-      border: none;
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.6), 0 2px 8px rgba(0,0,0,0.06);
     }
     .msg.success {
-      background: linear-gradient(145deg, #86efac, #4ade80);
-      color: #14532d;
+      background: #ecfdf5;
+      color: #065f46;
     }
     .msg.error {
-      background: linear-gradient(145deg, #fca5a5, #f87171);
-      color: #7f1d1d;
+      background: #fef2f2;
+      color: #991b1b;
     }
     .msg.info {
-      background: linear-gradient(145deg, #c4b5fd, #a78bfa);
-      color: #2e1065;
+      background: #f3f4f6;
+      color: #4b5563;
     }
     a.dl {
       display: inline-block;
       margin-top: 0.75rem;
-      padding: 0.75rem 1.5rem;
-      background: linear-gradient(145deg, #67e8f9, #22d3ee);
-      color: #0e7490;
+      padding: 0.65rem 1.25rem;
+      background: #4b5563;
+      color: #fff;
       text-decoration: none;
-      border-radius: 20px;
-      font-weight: 700;
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5), 0 6px 16px rgba(34,211,238,0.35);
-      transition: transform 0.15s, box-shadow 0.15s;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: background 0.2s;
     }
-    a.dl:hover {
-      transform: translateY(-2px);
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.6), 0 8px 20px rgba(34,211,238,0.4);
+    a.dl:hover { background: #374151; }
+    #progress { margin-top: 1rem; font-size: 0.9rem; font-weight: 500; color: #4b5563; }
+    #progress.err { color: #991b1b; }
+    #step { margin-top: 0.35rem; font-size: 0.8rem; color: #6b7280; }
+    .cancel-btn {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #6b7280;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      cursor: pointer;
     }
-    #progress { margin-top: 1rem; font-size: 0.9rem; font-weight: 600; color: #065f46; }
-    #progress.err { color: #7f1d1d; }
-    .card.download {
-      background: linear-gradient(145deg, #93c5fd, #60a5fa);
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.6), 0 10px 30px rgba(96,165,250,0.2);
-    }
-    .card.download label { color: #1e3a8a; }
+    .cancel-btn:hover { background: #e5e7eb; color: #374151; }
+    .card.download,
     .card.error {
-      background: linear-gradient(145deg, #fda4af, #fb7185);
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5), 0 10px 30px rgba(251,113,133,0.2);
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     }
-    .card.error .msg { color: #7f1d1d; }
     .footer {
       margin-top: 3rem;
       padding: 1.75rem 1.5rem;
-      border-radius: 28px;
-      background: linear-gradient(145deg, #e5e7eb, #d1d5db);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.85);
       text-align: center;
       font-size: 0.8rem;
-      color: #4b5563;
+      color: #6b7280;
       line-height: 1.95;
-      box-shadow: inset 2px 2px 4px rgba(255,255,255,0.8), 0 8px 24px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     }
-    .footer a { color: #7c3aed; font-weight: 600; text-decoration: none; }
+    .footer a { color: #4b5563; font-weight: 600; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -263,7 +251,9 @@ HTML = """
         <input type="file" name="file" id="file" accept=".epub" required>
         <button type="submit" id="btn">開始轉換</button>
         <p id="progress"></p>
-      </form>
+        <p id="step"></p>
+        <button type="button" id="cancelBtn" class="cancel-btn" style="display:none;">取消並重新進行</button>
+    </form>
       <p class="msg info" style="margin-top:1rem;">
         支援：簡體→臺灣繁體（含用語轉換）；英文→繁體中文（整書術語一致）。簡體與英文書皆會逐章轉換，大書也不受單次時間限制；<strong>整本書的語意、用詞會統一</strong>（英文：人名／術語 glossary 跨章傳遞；簡體：兩岸用語表整書統一套用）。
       </p>
@@ -295,10 +285,22 @@ HTML = """
     var fileInput = document.getElementById('file');
     var btn = document.getElementById('btn');
     var progress = document.getElementById('progress');
+    var stepEl = document.getElementById('step');
+    var cancelBtn = document.getElementById('cancelBtn');
 
     function setProgress(txt, isErr) {
       progress.textContent = txt;
       progress.className = isErr ? 'msg err' : '';
+    }
+    function setStep(txt) {
+      stepEl.textContent = txt || '';
+    }
+    function resetForm() {
+      fileInput.value = '';
+      btn.disabled = false;
+      cancelBtn.style.display = 'none';
+      setProgress('');
+      setStep('');
     }
 
     function stripHtml(html) {
@@ -337,11 +339,22 @@ HTML = """
       e.preventDefault();
       var file = fileInput.files[0];
       if (!file) return;
+      var controller = new AbortController();
+      var signal = controller.signal;
       btn.disabled = true;
+      cancelBtn.style.display = 'block';
       setProgress('讀取檔案並偵測語言…');
+      setStep('讀取 epub 檔案…');
+
+      cancelBtn.onclick = function() {
+        controller.abort();
+        resetForm();
+      };
 
       function doClassicSubmit() {
         setProgress('');
+        setStep('');
+        cancelBtn.style.display = 'none';
         form.submit();
       }
 
@@ -358,6 +371,7 @@ HTML = """
         if (!window.JSZip) return Promise.reject(new Error('JSZip 未載入'));
         return window.JSZip.loadAsync(ab);
       }).then(function(zip) {
+        setStep('解析 epub 結構與目錄…');
         var containerEntry = zip.file('META-INF/container.xml') || zip.file('container.xml');
         if (!containerEntry) throw new Error('找不到 container.xml');
         return containerEntry.async('string').then(function(str) {
@@ -383,12 +397,14 @@ HTML = """
           });
         });
       }).then(function(data) {
+        setStep('解析完成，偵測語言…');
         var firstText = data.ordered.length ? stripHtml(data.ordered[0].content) : '';
         if (!firstText) { doClassicSubmit(); return; }
         return fetch('/api/detect-lang', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: firstText })
+          body: JSON.stringify({ text: firstText }),
+          signal: signal
         }).then(function(r) { return r.json(); }).then(function(res) {
           if (res.error) throw new Error(res.error);
           var lang = res.language;
@@ -402,11 +418,13 @@ HTML = """
           return data.ordered.reduce(function(p, item, i) {
             return p.then(function() {
               setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章…');
+              setStep('正在轉換第 ' + (i + 1) + ' / ' + total + ' 章…');
               var body = JSON.stringify({ html: item.content, glossary: glossary });
               return fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: body
+                body: body,
+                signal: signal
               }).then(function(r) { return r.json(); }).then(function(apiRes) {
                 if (apiRes.error) throw new Error(apiRes.error);
                 item.content = (lang === 'en') ? apiRes.translated_html : apiRes.converted_html;
@@ -415,8 +433,10 @@ HTML = """
             });
           }, Promise.resolve()).then(function() {
             setProgress('組裝 epub 中…');
+            setStep('組裝 epub 中…');
             return data.zip.file(data.opfPath).async('string');
           }).then(function(opfStr) {
+            setStep('更新書名與目錄…');
             var title = '';
             try {
               var opfDoc = new DOMParser().parseFromString(opfStr, 'text/xml');
@@ -427,7 +447,8 @@ HTML = """
             return fetch('/api/convert-text', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: title, lang: lang })
+              body: JSON.stringify({ text: title, lang: lang }),
+              signal: signal
             }).then(function(r) { return r.json(); }).then(function(res) {
               var convertedTitle = (res.converted && res.converted.trim()) ? res.converted.trim() : title;
               function safe(s) { return (s || '').replace(/[<>:"/\\\\|?*]/g, '').replace(/\\s+/g, ' ').trim().slice(0, 80); }
@@ -441,6 +462,7 @@ HTML = """
               return { opfStr: newOpfStr, opfPath: data.opfPath, safeName: safeName };
             });
           }).then(function(meta) {
+            setStep('打包 epub 檔案…');
             var outZip = new window.JSZip();
             var pathMap = {};
             data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
@@ -460,11 +482,19 @@ HTML = """
             a.click();
             URL.revokeObjectURL(a.href);
             setProgress('下載已開始。');
+            setStep('下載已開始');
+            cancelBtn.style.display = 'none';
             btn.disabled = false;
           });
         });
       }).catch(function(err) {
+        if (err.name === 'AbortError') {
+          resetForm();
+          return;
+        }
         setProgress('錯誤：' + (err.message || err), true);
+        setStep('');
+        cancelBtn.style.display = 'none';
         btn.disabled = false;
       });
     });
