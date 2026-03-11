@@ -438,7 +438,98 @@ HTML = """
       }).then(function(data) {
         setProgress('解析完成，偵測語言…');
         var firstText = data.ordered.length ? stripHtml(data.ordered[0].content) : '';
-        if (!firstText) { doClassicSubmit(); return; }
+        // 若抓不到可用文字，改用預設簡體流程（避免整本上傳觸發 4MB 限制），直接走逐章轉換。
+        if (!firstText) {
+          var lang = 'zh-cn';
+          var total = data.ordered.length;
+          var maxChunkBytes = 2.5 * 1024 * 1024;
+          var apiUrl = '/api/convert-chapter-zh';
+          var glossary = {};
+          return data.ordered.reduce(function(p, item, i) {
+            return p.then(function() {
+              var chunks = splitHtmlChunks(item.content, maxChunkBytes);
+              return chunks.reduce(function(prev, chunkHtml, j) {
+                return prev.then(function() {
+                  var partLabel = chunks.length > 1 ? ' 第 ' + (j + 1) + '/' + chunks.length + ' 段' : '';
+                  setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…');
+                  var body = JSON.stringify({ html: chunkHtml, glossary: glossary });
+                  return fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body,
+                    signal: signal
+                  }).then(function(r) { return r.json(); }).then(function(apiRes) {
+                    if (apiRes.error) throw new Error(apiRes.error);
+                    if (!item.parts) item.parts = [];
+                    item.parts.push(apiRes.converted_html);
+                    if (apiRes.glossary) glossary = apiRes.glossary;
+                  });
+                });
+              }, Promise.resolve()).then(function() {
+                if (item.parts) {
+                  item.content = item.parts.join('');
+                  delete item.parts;
+                }
+              });
+            });
+          }, Promise.resolve()).then(function() {
+            setProgress('組裝 epub 中…');
+            return data.zip.file(data.opfPath).async('string');
+          }).then(function(opfStr) {
+            setProgress('更新書名與目錄…');
+            var title = '';
+            try {
+              var opfDoc = new DOMParser().parseFromString(opfStr, 'text/xml');
+              var t = opfDoc.getElementsByTagName('title')[0] || opfDoc.querySelector('*[local-name()="title"]');
+              if (t) title = (t.textContent || '').trim();
+            } catch(e) {}
+            if (!title) title = file.name.replace(/\.epub$/i, '');
+            return fetch('/api/convert-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: title, lang: lang }),
+              signal: signal
+            }).then(function(r) { return r.json(); }).then(function(res) {
+              var convertedTitle = (res.converted && res.converted.trim()) ? res.converted.trim() : title;
+              function safe(s) { return (s || '').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80); }
+              var safeName = (safe(convertedTitle) || 'book') + '（' + (safe(title) || '') + '）';
+              var newOpfStr = opfStr;
+              if (convertedTitle) {
+                var esc = convertedTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                newOpfStr = opfStr.replace(/(<dc:title[^>]*>)([^<]*)(<\/dc:title>)/gi, '$1' + esc + '$3');
+                if (newOpfStr === opfStr) newOpfStr = opfStr.replace(/(<title[^>]*>)([^<]*)(<\/title>)/gi, '$1' + esc + '$3');
+              }
+              var opfBase = data.opfPath.indexOf('/') >= 0 ? data.opfPath.slice(0, data.opfPath.lastIndexOf('/') + 1) : '';
+              var copyrightPath = null;
+              var opfWithCopyright = newOpfStr;
+              if (newOpfStr.indexOf('nps_copyright') === -1) {
+                copyrightPath = opfBase + 'copyright.xhtml';
+                opfWithCopyright = newOpfStr
+                  .replace(/<\/manifest>/, '  <item id="nps_copyright" href="copyright.xhtml" media-type="application/xhtml+xml"/>\n</manifest>')
+                  .replace(/(<spine[^>]*>)(\s*)/, '$1$2  <itemref idref="nps_copyright"/>$2');
+              }
+              return { opfStr: opfWithCopyright, opfPath: data.opfPath, safeName: safeName, copyrightPath: copyrightPath };
+            });
+          }).then(function(meta) {
+            setProgress('打包 epub 檔案…');
+            var outZip = new window.JSZip();
+            var pathMap = {};
+            data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
+            pathMap[meta.opfPath] = meta.opfStr;
+            if (meta.copyrightPath) {
+              pathMap[meta.copyrightPath] = COPYRIGHT_PAGE_HTML;
+            }
+            var names = Object.keys(data.zip.files);
+            return Promise.all(names.map(function(path) {
+              if (pathMap[path]) { outZip.file(path, pathMap[path]); return Promise.resolve(); }
+              var entry = data.zip.files[path];
+              return entry.async('uint8array').then(function(arr) { outZip.file(path, arr); });
+            })).then(function() {
+              if (meta.copyrightPath) outZip.file(meta.copyrightPath, COPYRIGHT_PAGE_HTML);
+              return outZip.generateAsync({ type: 'blob' });
+            }).then(function(blob) { return { blob: blob, meta: meta }; });
+          });
+        }
         return fetch('/api/detect-lang', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
