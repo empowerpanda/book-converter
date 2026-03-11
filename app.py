@@ -448,8 +448,8 @@ HTML = """
           if (res.error) throw new Error(res.error);
           var lang = res.language;
           if (lang !== 'en' && lang !== 'zh-cn' && lang !== 'zh') {
-            doClassicSubmit();
-            return;
+            // 若偵測不到語言但使用者多半是中文或英文書，預設當作簡體處理，避免整本上傳觸發 4 MB 限制。
+            lang = 'zh-cn';
           }
           var total = data.ordered.length;
           var maxChunkBytes = 2.5 * 1024 * 1024;
