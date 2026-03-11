@@ -442,7 +442,8 @@ HTML = """
         if (!firstText) {
           var lang = 'zh-cn';
           var total = data.ordered.length;
-          var maxChunkBytes = 2.5 * 1024 * 1024;
+          // 為避免 Vercel 4.5MB payload 限制，單段控制在約 1MB 以內
+          var maxChunkBytes = 1 * 1024 * 1024;
           var apiUrl = '/api/convert-chapter-zh';
           var glossary = {};
           return data.ordered.reduce(function(p, item, i) {
@@ -543,7 +544,8 @@ HTML = """
             lang = 'zh-cn';
           }
           var total = data.ordered.length;
-          var maxChunkBytes = 2.5 * 1024 * 1024;
+          // 為避免 Vercel 4.5MB payload 限制，單段控制在約 1MB 以內
+          var maxChunkBytes = 1 * 1024 * 1024;
           var apiUrl = (lang === 'en') ? '/api/translate-chapter' : '/api/convert-chapter-zh';
           var glossary = {};
           return data.ordered.reduce(function(p, item, i) {
