@@ -204,8 +204,28 @@ HTML = """
       transition: background 0.2s;
     }
     a.dl:hover { background: #374151; }
-    #progress { margin-top: 1rem; font-size: 0.9rem; font-weight: 500; color: #4b5563; }
-    #progress.err { color: #991b1b; }
+    /* ── 視覺進度條 ── */
+    .progress-wrap { margin-top: 1rem; display: none; }
+    .progress-bar-bg { background: #e5e7eb; border-radius: 99px; overflow: hidden; height: 7px; }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4b5563, #6b7280);
+      border-radius: 99px;
+      transition: width 0.35s ease;
+      width: 0%;
+    }
+    #progressText { margin-top: 0.5rem; font-size: 0.875rem; font-weight: 500; color: #4b5563; }
+    #progressText.err { color: #991b1b; }
+    /* ── 雙語模式開關 ── */
+    .bilingual-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-top: 1rem;
+      cursor: pointer;
+    }
+    .bilingual-toggle input { width: 1rem; height: 1rem; cursor: pointer; accent-color: #4b5563; }
+    .bilingual-toggle span { font-size: 0.9rem; font-weight: 500; color: #374151; }
     .cancel-btn {
       margin-top: 1rem;
       width: 100%;
@@ -252,8 +272,19 @@ HTML = """
       <form id="form" method="post" action="/convert" enctype="multipart/form-data">
         <label for="file">選擇 .epub 檔案</label>
         <input type="file" name="file" id="file" accept=".epub" required>
+        <!-- 雙語模式開關 -->
+        <label class="bilingual-toggle">
+          <input type="checkbox" id="bilingualMode">
+          <span>雙語模式（保留原文，每段下方顯示繁中譯文）</span>
+        </label>
         <button type="submit" id="btn">開始轉換</button>
-        <p id="progress"></p>
+        <!-- 視覺進度條 -->
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressFill"></div>
+          </div>
+          <p id="progressText"></p>
+        </div>
         <button type="button" id="cancelBtn" class="cancel-btn" style="display:none;">取消並重新進行</button>
     </form>
       <p class="msg info" style="margin-top:1rem;">
@@ -287,16 +318,34 @@ HTML = """
 
   <script>
   (function() {
-    var form = document.getElementById('form');
-    var fileInput = document.getElementById('file');
-    var btn = document.getElementById('btn');
-    var progress = document.getElementById('progress');
-    var cancelBtn = document.getElementById('cancelBtn');
+    var form         = document.getElementById('form');
+    var fileInput    = document.getElementById('file');
+    var btn          = document.getElementById('btn');
+    var cancelBtn    = document.getElementById('cancelBtn');
+    var progressWrap = document.getElementById('progressWrap');
+    var progressFill = document.getElementById('progressFill');
+    var progressText = document.getElementById('progressText');
+    var bilingualMode = document.getElementById('bilingualMode');
 
-    function setProgress(txt, isErr) {
-      progress.textContent = txt;
-      progress.className = isErr ? 'msg err' : '';
+    /**
+     * 更新進度條與文字。
+     * pct: 0-100（可選），若省略則進度條維持現狀。
+     * isErr: true 時文字顯示為紅色。
+     */
+    function setProgress(txt, isErr, pct) {
+      if (txt) {
+        progressWrap.style.display = 'block';
+      } else {
+        progressWrap.style.display = 'none';
+        progressFill.style.width = '0%';
+      }
+      progressText.textContent = txt || '';
+      progressText.className = isErr ? 'err' : '';
+      if (typeof pct === 'number') {
+        progressFill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+      }
     }
+
     function resetForm() {
       fileInput.value = '';
       btn.disabled = false;
@@ -366,8 +415,6 @@ HTML = """
       return i >= 0 ? opfPath.slice(0, i + 1) : '';
     }
 
-    var MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
-    var UPLOAD_LIMIT_MSG = '檔案過大（超過 4 MB），目前部署環境無法接受單次上傳，請改用本機指令列：python main.py 你的書.epub';
     var COPYRIGHT_PAGE_HTML = "<?xml version='1.0' encoding='utf-8'?>\\n<!DOCTYPE html>\\n<html xmlns=\\"http://www.w3.org/1999/xhtml\\" lang=\\"zh-TW\\" xml:lang=\\"zh-TW\\">\\n<head><meta charset=\\"utf-8\\"/><title>版權頁</title></head>\\n<body>\\n  <p>本書籍轉換工具，由「熊貓原點有限公司」維護。</p>\\n  <p>若有任何建議或靈感，歡迎聯繫 panda@nps.tw</p>\\n  <p>本司代理各領域軟體、硬體採購，詳情請洽詢：<a href=\\"https://www.nps.tw\\">nps.tw</a></p>\\n</body>\\n</html>";
 
     form.addEventListener('submit', function(e) {
@@ -378,24 +425,12 @@ HTML = """
       var signal = controller.signal;
       btn.disabled = true;
       cancelBtn.style.display = 'block';
-      setProgress('讀取檔案並偵測語言…');
+      setProgress('讀取檔案並偵測語言…', false, 2);
 
       cancelBtn.onclick = function() {
         controller.abort();
         resetForm();
       };
-
-      function doClassicSubmit() {
-        if (file.size > MAX_UPLOAD_BYTES) {
-          setProgress(UPLOAD_LIMIT_MSG, true);
-          cancelBtn.style.display = 'none';
-          btn.disabled = false;
-          return;
-        }
-        setProgress('');
-        cancelBtn.style.display = 'none';
-        form.submit();
-      }
 
       function readAsArrayBuffer(f) {
         return new Promise(function(resolve, reject) {
@@ -446,14 +481,16 @@ HTML = """
           var maxChunkBytes = 256 * 1024;
           var apiUrl = '/api/convert-chapter-zh';
           var glossary = {};
+          var bilingual = bilingualMode ? bilingualMode.checked : false;
           return data.ordered.reduce(function(p, item, i) {
             return p.then(function() {
               var chunks = splitHtmlChunks(item.content, maxChunkBytes);
               return chunks.reduce(function(prev, chunkHtml, j) {
                 return prev.then(function() {
                   var partLabel = chunks.length > 1 ? ' 第 ' + (j + 1) + '/' + chunks.length + ' 段' : '';
-                  setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…');
-                  var body = JSON.stringify({ html: chunkHtml, glossary: glossary });
+                  var pct = Math.round(((i + (j / Math.max(chunks.length, 1))) / total) * 88) + 5;
+                  setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…', false, pct);
+                  var body = JSON.stringify({ html: chunkHtml, glossary: glossary, bilingual: bilingual });
                   return fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -474,10 +511,10 @@ HTML = """
               });
             });
           }, Promise.resolve()).then(function() {
-            setProgress('組裝 epub 中…');
+            setProgress('組裝 epub 中…', false, 93);
             return data.zip.file(data.opfPath).async('string');
           }).then(function(opfStr) {
-            setProgress('更新書名與目錄…');
+            setProgress('更新書名與目錄…', false, 96);
             var title = '';
             try {
               var opfDoc = new DOMParser().parseFromString(opfStr, 'text/xml');
@@ -512,7 +549,7 @@ HTML = """
               return { opfStr: opfWithCopyright, opfPath: data.opfPath, safeName: safeName, copyrightPath: copyrightPath };
             });
           }).then(function(meta) {
-            setProgress('打包 epub 檔案…');
+            setProgress('打包 epub 檔案…', false, 98);
             var outZip = new window.JSZip();
             var pathMap = {};
             data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
@@ -540,7 +577,6 @@ HTML = """
           if (res.error) throw new Error(res.error);
           var lang = res.language;
           if (lang !== 'en' && lang !== 'zh-cn' && lang !== 'zh') {
-            // 若偵測不到語言但使用者多半是中文或英文書，預設當作簡體處理，避免整本上傳觸發 4 MB 限制。
             lang = 'zh-cn';
           }
           var total = data.ordered.length;
@@ -548,14 +584,17 @@ HTML = """
           var maxChunkBytes = 256 * 1024;
           var apiUrl = (lang === 'en') ? '/api/translate-chapter' : '/api/convert-chapter-zh';
           var glossary = {};
+          var context = [];  // Context Window：章節間傳遞，保持上下文連貫
+          var bilingual = bilingualMode ? bilingualMode.checked : false;
           return data.ordered.reduce(function(p, item, i) {
             return p.then(function() {
               var chunks = splitHtmlChunks(item.content, maxChunkBytes);
               return chunks.reduce(function(prev, chunkHtml, j) {
                 return prev.then(function() {
                   var partLabel = chunks.length > 1 ? ' 第 ' + (j + 1) + '/' + chunks.length + ' 段' : '';
-                  setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…');
-                  var body = JSON.stringify({ html: chunkHtml, glossary: glossary });
+                  var pct = Math.round(((i + (j / Math.max(chunks.length, 1))) / total) * 88) + 5;
+                  setProgress('轉換中：第 ' + (i + 1) + ' / ' + total + ' 章' + partLabel + '…', false, pct);
+                  var body = JSON.stringify({ html: chunkHtml, glossary: glossary, context: context, bilingual: bilingual });
                   return fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -566,6 +605,7 @@ HTML = """
                     if (!item.parts) item.parts = [];
                     item.parts.push((lang === 'en') ? apiRes.translated_html : apiRes.converted_html);
                     if (apiRes.glossary) glossary = apiRes.glossary;
+                    if (apiRes.context) context = apiRes.context;  // 更新 Context Window
                   });
                 });
               }, Promise.resolve()).then(function() {
@@ -576,10 +616,10 @@ HTML = """
               });
             });
           }, Promise.resolve()).then(function() {
-            setProgress('組裝 epub 中…');
+            setProgress('組裝 epub 中…', false, 93);
             return data.zip.file(data.opfPath).async('string');
           }).then(function(opfStr) {
-            setProgress('更新書名與目錄…');
+            setProgress('更新書名與目錄…', false, 96);
             var title = '';
             try {
               var opfDoc = new DOMParser().parseFromString(opfStr, 'text/xml');
@@ -614,7 +654,7 @@ HTML = """
               return { opfStr: opfWithCopyright, opfPath: data.opfPath, safeName: safeName, copyrightPath: copyrightPath };
             });
           }).then(function(meta) {
-            setProgress('打包 epub 檔案…');
+            setProgress('打包 epub 檔案…', false, 98);
             var outZip = new window.JSZip();
             var pathMap = {};
             data.ordered.forEach(function(o) { pathMap[o.path] = o.content; });
@@ -639,7 +679,7 @@ HTML = """
             a.download = (meta.safeName || 'book') + '.epub';
             a.click();
             URL.revokeObjectURL(a.href);
-            setProgress('書籍翻譯完成（瀏覽器將於 60 秒內自動下載）');
+            setProgress('✓ 書籍轉換完成，已開始下載！', false, 100);
             cancelBtn.style.display = 'none';
             btn.disabled = false;
           });
@@ -755,29 +795,36 @@ def api_detect_lang():
 
 @app.route("/api/translate-chapter", methods=["POST"])
 def api_translate_chapter():
-    """POST JSON: html, glossary. EN to ZH-TW, glossary kept per book."""
+    """POST JSON: html, glossary, context(list), bilingual(bool). EN to ZH-TW."""
     try:
         data = request.get_json(force=True, silent=True) or {}
         html = data.get("html") or ""
         glossary = data.get("glossary") or {}
+        context = data.get("context") or []   # Context Window（章節間傳遞）
+        bilingual = bool(data.get("bilingual", False))
         if not isinstance(glossary, dict):
             glossary = {}
+        if not isinstance(context, list):
+            context = []
         if not html.strip():
-            return jsonify({"translated_html": html, "glossary": glossary})
+            return jsonify({"translated_html": html, "glossary": glossary, "context": context})
 
         sys.path.insert(0, str(ROOT))
-        from epub_io import get_text_from_html, set_text_in_html
+        from epub_io import get_text_from_html, set_text_in_html, set_bilingual_html
         from translator_en import translate_english_to_traditional
 
         text = get_text_from_html(html)
         if not text.strip():
-            return jsonify({"translated_html": html, "glossary": glossary})
+            return jsonify({"translated_html": html, "glossary": glossary, "context": context})
         lines = text.split("\n")
         text_to_convert = "\n".join(ln for ln in lines if ln.strip())
         if not text_to_convert.strip():
-            return jsonify({"translated_html": html, "glossary": glossary})
+            return jsonify({"translated_html": html, "glossary": glossary, "context": context})
         engine = os.environ.get("BOOK_TRANSLATION_ENGINE", "google")
-        new_text, glossary = translate_english_to_traditional(text_to_convert, glossary=glossary, engine=engine)
+        # 3-tuple 回傳，接收更新後的 context_window
+        new_text, glossary, context = translate_english_to_traditional(
+            text_to_convert, glossary=glossary, engine=engine, context_window=context
+        )
         raw_paras = [p.strip() for p in re.split(r"\n+", new_text) if p.strip()]
         new_paras = [None] * len(lines)
         j = 0
@@ -791,26 +838,30 @@ def api_translate_chapter():
         if j < len(raw_paras) and last_assigned_idx is not None:
             tail = "\n".join(raw_paras[j:])
             new_paras[last_assigned_idx] = (new_paras[last_assigned_idx] or "") + ("\n" + tail if tail else "")
-        new_html = set_text_in_html(html, new_paras)
-        return jsonify({"translated_html": new_html, "glossary": glossary})
+        if bilingual:
+            new_html = set_bilingual_html(html, new_paras)
+        else:
+            new_html = set_text_in_html(html, new_paras)
+        return jsonify({"translated_html": new_html, "glossary": glossary, "context": context})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/convert-chapter-zh", methods=["POST"])
 def api_convert_chapter_zh():
-    """POST JSON: html, glossary. Simplified to TW traditional, glossary optional override."""
+    """POST JSON: html, glossary, bilingual(bool). Simplified to TW traditional."""
     try:
         data = request.get_json(force=True, silent=True) or {}
         html = data.get("html") or ""
         glossary = data.get("glossary") or {}
+        bilingual = bool(data.get("bilingual", False))
         if not isinstance(glossary, dict):
             glossary = {}
         if not html.strip():
             return jsonify({"converted_html": html, "glossary": glossary})
 
         sys.path.insert(0, str(ROOT))
-        from epub_io import get_text_from_html, set_text_in_html
+        from epub_io import get_text_from_html, set_text_in_html, set_bilingual_html
         from converter_zh import convert_simplified_to_traditional
 
         text = get_text_from_html(html)
@@ -836,7 +887,10 @@ def api_convert_chapter_zh():
         if j < len(raw_paras) and last_assigned_idx is not None:
             tail = "\n".join(raw_paras[j:])
             new_paras[last_assigned_idx] = (new_paras[last_assigned_idx] or "") + ("\n" + tail if tail else "")
-        new_html = set_text_in_html(html, new_paras)
+        if bilingual:
+            new_html = set_bilingual_html(html, new_paras)
+        else:
+            new_html = set_text_in_html(html, new_paras)
         return jsonify({"converted_html": new_html, "glossary": glossary})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

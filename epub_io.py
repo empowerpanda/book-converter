@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 EPUB 讀取與寫出：萃取 HTML 內文、套用轉換後寫回 .epub
+新增：set_bilingual_html（雙語模式，原文保留 + 插入繁中譯文）
 """
 
 import html as _html
@@ -166,6 +167,64 @@ def set_text_in_html(html: str, new_text_or_paras: Union[str, List[Optional[str]
     return str(soup)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# 雙語模式：保留原文並在每段後插入譯文
+# ──────────────────────────────────────────────────────────────────────────────
+
+BILINGUAL_CSS = """
+.nps-trans {
+    display: block;
+    color: #3b5268;
+    font-size: 0.88em;
+    font-style: italic;
+    margin-top: 0.15em;
+    margin-bottom: 0.4em;
+    padding-left: 0.8em;
+    border-left: 2px solid #b0c4de;
+}
+"""
+
+
+def set_bilingual_html(html: str, new_paras: List[Optional[str]]) -> str:
+    """雙語模式：在每個有文字的葉子區塊後面插入對應繁中譯文，原文保留。
+
+    每個段落結構為：
+        <p>原文</p>
+        <span class="nps-trans">繁中譯文</span>
+    """
+    if not html:
+        return html
+    soup = BeautifulSoup(html, "lxml")
+
+    # 注入 CSS（每個 HTML 檔案只注入一次）
+    head = soup.find("head")
+    if head and not soup.find("style", {"id": "nps-bilingual-style"}):
+        style_tag = soup.new_tag("style", id="nps-bilingual-style")
+        style_tag.string = BILINGUAL_CSS
+        head.append(style_tag)
+
+    body = soup.find("body")
+    if not body:
+        return html
+
+    leaf_blocks = _get_leaf_blocks_in_order(body)
+    padded = (list(new_paras) + [None] * len(leaf_blocks))[: len(leaf_blocks)]
+
+    for tag, new_para in zip(leaf_blocks, padded):
+        if new_para is None or not new_para.strip():
+            continue
+        original_text = tag.get_text(separator=" ", strip=True)
+        if not original_text.strip():
+            continue
+        # 在原文區塊後插入譯文 span
+        trans_span = soup.new_tag("span")
+        trans_span["class"] = "nps-trans"
+        trans_span.string = new_para
+        tag.insert_after(trans_span)
+
+    return str(soup)
+
+
 def add_copyright_page(book) -> None:
     """在書籍最前面加入版權頁（spine 第一項），開啟時為第一頁。"""
     copyright_item = epub.EpubHtml(
@@ -287,9 +346,11 @@ def process_epub_english_to_traditional(
     input_path: str,
     output_path: str,
     engine: str = "google",
+    bilingual: bool = False,
 ) -> None:
-    """
-    讀取英文 EPUB，逐段翻譯成繁體中文，整書共用詞彙表以保持人名／術語一致，寫出 .epub。
+    """讀取英文 EPUB，逐段翻譯成繁體中文，整書共用詞彙表以保持人名／術語一致，寫出 .epub。
+
+    bilingual=True 時保留原文並在每段後插入繁中譯文（雙語模式）。
     """
     from translator_en import translate_english_to_traditional
 
@@ -297,6 +358,7 @@ def process_epub_english_to_traditional(
     output_path = Path(output_path).resolve()
     book = epub.read_epub(str(input_path))
     glossary: dict = {}
+    context_window: list = []  # Context Window：章節間傳遞，保持上下文一致
 
     for item in book.get_items():
         if item.get_type() != ITEM_DOCUMENT:
@@ -315,9 +377,12 @@ def process_epub_english_to_traditional(
         text_to_convert = "\n".join(ln for ln in lines if ln.strip())
         if not text_to_convert.strip():
             continue
-        new_text, glossary = translate_english_to_traditional(text_to_convert, glossary=glossary, engine=engine)
+        # 3-tuple 回傳：接收更新後的 glossary 和 context_window
+        new_text, glossary, context_window = translate_english_to_traditional(
+            text_to_convert, glossary=glossary, engine=engine, context_window=context_window
+        )
         raw_paras = [p.strip() for p in re.split(r"\n+", new_text) if p.strip()]
-        new_paras = [None] * len(lines)
+        new_paras: List[Optional[str]] = [None] * len(lines)
         j = 0
         last_assigned_idx = None
         for i in range(len(lines)):
@@ -329,7 +394,10 @@ def process_epub_english_to_traditional(
         if j < len(raw_paras) and last_assigned_idx is not None:
             tail = "\n".join(raw_paras[j:])
             new_paras[last_assigned_idx] = (new_paras[last_assigned_idx] or "") + ("\n" + tail if tail else "")
-        new_html = set_text_in_html(html, new_paras)
+        if bilingual:
+            new_html = set_bilingual_html(html, new_paras)
+        else:
+            new_html = set_text_in_html(html, new_paras)
         item.set_content(new_html.encode("utf-8"))
 
     # 書名 metadata 一併翻譯
@@ -338,7 +406,9 @@ def process_epub_english_to_traditional(
         if title_list and title_list[0]:
             old_title = title_list[0][0]
             if isinstance(old_title, str) and old_title.strip():
-                new_title, _ = translate_english_to_traditional(old_title, glossary=glossary, engine=engine)
+                new_title, _, _ = translate_english_to_traditional(
+                    old_title, glossary=glossary, engine=engine
+                )
                 book.set_metadata("DC", "title", new_title)
     except Exception:
         pass
