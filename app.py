@@ -358,6 +358,24 @@ HTML = """
       div.innerHTML = html;
       return (div.textContent || div.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 15000);
     }
+    // 送 API 前把 base64 圖片替換成佔位符，避免 Vercel 4.5MB payload 限制
+    function stripBase64Images(html) {
+      var map = {};
+      var idx = 0;
+      var stripped = html.replace(/src="data:[^"]{50,}"/g, function(match) {
+        var key = '__B64_' + idx + '__';
+        map[key] = match;
+        idx++;
+        return 'src="' + key + '"';
+      });
+      return { stripped: stripped, map: map };
+    }
+    function restoreBase64Images(html, map) {
+      return html.replace(/src="__B64_(\d+)__"/g, function(match, n) {
+        var key = '__B64_' + n + '__';
+        return map[key] || match;
+      });
+    }
     function splitHtmlChunks(html, maxBytes) {
       if (!html || new Blob([html]).size <= maxBytes) return [html];
       var chunks = [];
@@ -484,7 +502,8 @@ HTML = """
           var bilingual = bilingualMode ? bilingualMode.checked : false;
           return data.ordered.reduce(function(p, item, i) {
             return p.then(function() {
-              var chunks = splitHtmlChunks(item.content, maxChunkBytes);
+              var b64r = stripBase64Images(item.content);
+              var chunks = splitHtmlChunks(b64r.stripped, maxChunkBytes);
               return chunks.reduce(function(prev, chunkHtml, j) {
                 return prev.then(function() {
                   var partLabel = chunks.length > 1 ? ' 第 ' + (j + 1) + '/' + chunks.length + ' 段' : '';
@@ -505,7 +524,7 @@ HTML = """
                 });
               }, Promise.resolve()).then(function() {
                 if (item.parts) {
-                  item.content = item.parts.join('');
+                  item.content = restoreBase64Images(item.parts.join(''), b64r.map);
                   delete item.parts;
                 }
               });
@@ -588,7 +607,8 @@ HTML = """
           var bilingual = bilingualMode ? bilingualMode.checked : false;
           return data.ordered.reduce(function(p, item, i) {
             return p.then(function() {
-              var chunks = splitHtmlChunks(item.content, maxChunkBytes);
+              var b64r = stripBase64Images(item.content);
+              var chunks = splitHtmlChunks(b64r.stripped, maxChunkBytes);
               return chunks.reduce(function(prev, chunkHtml, j) {
                 return prev.then(function() {
                   var partLabel = chunks.length > 1 ? ' 第 ' + (j + 1) + '/' + chunks.length + ' 段' : '';
@@ -610,7 +630,7 @@ HTML = """
                 });
               }, Promise.resolve()).then(function() {
                 if (item.parts) {
-                  item.content = item.parts.join('');
+                  item.content = restoreBase64Images(item.parts.join(''), b64r.map);
                   delete item.parts;
                 }
               });
