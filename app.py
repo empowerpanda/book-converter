@@ -563,7 +563,7 @@ HTML = """
               if (newOpfStr.indexOf('nps_copyright') === -1) {
                 copyrightPath = opfBase + 'copyright.xhtml';
                 opfWithCopyright = newOpfStr
-                  .replace(/<\/manifest>/, '  <item id="nps_copyright" href="copyright.xhtml" media-type="application/xhtml+xml"/>\n</manifest>')
+                  .replace(/<\/manifest>/, '  <item id="nps_copyright" href="copyright.xhtml" media-type="application/xhtml+xml"/>\\n</manifest>')
                   .replace(/(<spine[^>]*>)(\s*)/, '$1$2  <itemref idref="nps_copyright"/>$2');
               }
               return { opfStr: opfWithCopyright, opfPath: data.opfPath, safeName: safeName, copyrightPath: copyrightPath };
