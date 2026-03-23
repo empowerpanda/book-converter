@@ -269,7 +269,7 @@ HTML = """
     </header>
 
     <div class="card">
-      <form id="form" method="post" action="/convert" enctype="multipart/form-data">
+      <form id="form" method="post" action="#" enctype="multipart/form-data">
         <label for="file">選擇 .epub 檔案</label>
         <input type="file" name="file" id="file" accept=".epub" required>
         <!-- 雙語模式開關 -->
