@@ -93,7 +93,7 @@ HTML = """
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>書籍轉換工具</title>
+  <title>BookFlow 閱讀轉換器</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Nunito:wght@600;700&display=swap" rel="stylesheet">
@@ -264,7 +264,7 @@ HTML = """
 <body>
   <div class="wrap">
     <header class="hero">
-      <h1>書籍轉換工具</h1>
+      <h1>BookFlow 閱讀轉換器</h1>
       <p class="sub">上傳 .epub（簡體或英文），自動轉成臺灣繁體 .epub 並可下載</p>
     </header>
 
