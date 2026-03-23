@@ -371,7 +371,7 @@ HTML = """
       return { stripped: stripped, map: map };
     }
     function restoreBase64Images(html, map) {
-      return html.replace(/src="__B64_(\d+)__"/g, function(match, n) {
+      return html.replace(/src="__B64_(\\d+)__"/g, function(match, n) {
         var key = '__B64_' + n + '__';
         return map[key] || match;
       });
