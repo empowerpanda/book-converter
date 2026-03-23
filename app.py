@@ -44,11 +44,12 @@ app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
 
 @app.errorhandler(Exception)
 def handle_error(e):
-    """回傳錯誤訊息與 traceback，方便在 Vercel 除錯。"""
+    """回傳錯誤訊息與 traceback，方便除錯。"""
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return jsonify({"error": str(e)}), e.code
     tb = traceback.format_exc()
-    if os.environ.get("VERCEL"):
-        return jsonify({"error": str(e), "traceback": tb}), 500
-    raise e
+    return jsonify({"error": str(e), "traceback": tb}), 500
 
 
 @app.route("/api/health")
